@@ -1,6 +1,6 @@
 /**
  * reportcard.css — SFDS Report Card System
- * Report card layout for legal-size print (8.5" × 14", portrait)
+ * Layout: Legal portrait (8.5" × 14" / 216mm × 356mm), single page, print-first
  */
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -12,9 +12,11 @@
     margin: 8mm;
   }
 
-  body {
+  html, body {
     margin: 0;
+    padding: 0;
     background: white;
+    height: 100%;
   }
 
   .no-print {
@@ -22,30 +24,28 @@
   }
 
   .report-card {
-    page-break-after: always;
+    /* No page-break-after: always — that causes a blank second page */
     box-shadow: none !important;
     border: none !important;
-    width: 100% !important;
-    min-height: auto !important;
+    width: 200mm !important;
+    height: 340mm !important;
     margin: 0 !important;
+    overflow: hidden !important;
   }
 
-  /* Prevent awkward page breaks inside critical sections */
+  .report-card::after {
+    opacity: 0.025;
+  }
+
   .rc-header,
   .rc-footer,
   .rc-marks-table,
   .rc-result-box,
   .rc-summary-grid,
-  .rc-bar-chart,
   .rc-coscholastic,
   .rc-remarks,
   .rc-attendance {
     page-break-inside: avoid;
-  }
-
-  /* Soften watermark slightly for print */
-  .report-card::after {
-    opacity: 0.025;
   }
 }
 
@@ -89,11 +89,13 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   REPORT CARD WRAPPER
+   REPORT CARD WRAPPER — exact Legal usable area (216 - 2×8mm = 200mm wide,
+   356 - 2×8mm = 340mm tall)
    ═══════════════════════════════════════════════════════════════════════════ */
 .report-card {
-  width: 204mm;        /* 216mm - 2×8mm margin ≈ 200mm, using 204mm for safety */
-  min-height: 340mm;   /* 356mm - 2×8mm margin */
+  width: 200mm;
+  height: 340mm;
+  overflow: hidden;
   margin: 0 auto;
   background: var(--rc-cream);
   display: flex;
@@ -112,7 +114,7 @@ body {
   left: 50%;
   transform: translate(-50%, -50%) rotate(-35deg);
   font-family: var(--rc-headerfont);
-  font-size: 3.2rem;
+  font-size: 3.6rem;
   font-weight: 700;
   color: var(--rc-gold);
   opacity: 0.035;
@@ -120,7 +122,6 @@ body {
   pointer-events: none;
   z-index: 0;
   letter-spacing: 3px;
-  text-transform: uppercase;
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
@@ -131,7 +132,7 @@ body {
 .rc-header {
   background: var(--rc-dark);
   border-bottom: 3px solid var(--rc-gold);
-  padding: 5mm 7mm;
+  padding: 4mm 6mm;
   flex-shrink: 0;
   position: relative;
   z-index: 1;
@@ -141,17 +142,14 @@ body {
   display: flex;
   align-items: center;
   gap: 4mm;
-  position: relative;
 }
 
 .rc-logo {
-  width: 56px;
-  height: 56px;
+  width: 54px;
+  height: 54px;
   object-fit: contain;
   flex-shrink: 0;
   display: block;
-  image-rendering: -webkit-optimize-contrast;
-  image-rendering: crisp-edges;
 }
 
 .rc-header-text {
@@ -160,7 +158,7 @@ body {
 
 .rc-header-text h1 {
   font-family: var(--rc-headerfont);
-  font-size: 1.2rem;
+  font-size: 1.15rem;
   color: var(--rc-gold);
   margin: 0;
   letter-spacing: 0.5px;
@@ -180,7 +178,7 @@ body {
 }
 
 .rc-title {
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   color: var(--rc-gold);
   margin: 3px 0 0;
   letter-spacing: 1px;
@@ -188,41 +186,50 @@ body {
   font-weight: 600;
 }
 
-/* Class badge */
 .rc-class-badge {
   background: var(--rc-dark);
   border: 2px solid var(--rc-gold);
   color: var(--rc-gold);
-  padding: 2px 6px;
+  padding: 3px 8px;
   text-align: center;
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  line-height: 1.3;
+  line-height: 1.5;
   flex-shrink: 0;
-  min-width: 60px;
+  min-width: 64px;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   BODY — 3-COLUMN GRID
+   BODY — 3-COLUMN GRID, fills all remaining height
    ═══════════════════════════════════════════════════════════════════════════ */
 .rc-body {
   display: grid;
-  grid-template-columns: 55mm 1fr 1fr;
-  gap: 3mm;
-  padding: 3mm 5mm;
+  grid-template-columns: 50mm 1fr 1fr;
+  gap: 2.5mm;
+  padding: 3mm 5mm 2mm;
   flex: 1;
-  align-content: start;
+  min-height: 0;
+  align-items: stretch;
   position: relative;
   z-index: 1;
 }
 
+/* Each panel is a flex column */
+.rc-left,
+.rc-center,
+.rc-right {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
-   SECTION STRIPS (dark bg + gold text)
+   SECTION STRIPS
    ═══════════════════════════════════════════════════════════════════════════ */
 .rc-strip {
   background: var(--rc-dark);
   color: var(--rc-gold);
-  padding: 1.5mm 3mm;
+  padding: 2mm 3mm;
   font-size: 0.6rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -231,6 +238,12 @@ body {
   align-items: center;
   gap: 1.5mm;
   margin-bottom: 1.5mm;
+  flex-shrink: 0;
+}
+
+/* Push the Academic Results strip to the bottom of center panel */
+.rc-strip-push {
+  margin-top: auto;
 }
 
 .rc-strip-marker {
@@ -247,12 +260,13 @@ body {
 .rc-photo-box {
   display: flex;
   justify-content: center;
-  margin-bottom: 1.5mm;
+  margin-bottom: 2mm;
+  flex-shrink: 0;
 }
 
 .rc-photo-placeholder {
-  width: 52px;
-  height: 65px;
+  width: 56px;
+  height: 70px;
   border: 1.5px dashed var(--rc-gold);
   display: flex;
   align-items: center;
@@ -264,29 +278,32 @@ body {
 }
 
 .rc-profile-name {
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   font-weight: 700;
   text-align: center;
-  margin-bottom: 0.5mm;
+  margin-bottom: 1mm;
   color: var(--rc-text);
+  flex-shrink: 0;
 }
 
 .rc-profile-meta {
-  font-size: 0.55rem;
+  font-size: 0.56rem;
   text-align: center;
   color: var(--rc-muted);
   margin-bottom: 1.5mm;
+  flex-shrink: 0;
 }
 
 .rc-field-list {
   margin-bottom: 1.5mm;
+  flex-shrink: 0;
 }
 
 .rc-field {
   display: flex;
   justify-content: space-between;
   font-size: 0.6rem;
-  padding: 0.5px 0;
+  padding: 1px 0;
   border-bottom: 1px solid var(--rc-border);
 }
 
@@ -302,10 +319,11 @@ body {
 
 /* Attendance */
 .rc-attendance {
-  margin-bottom: 2mm;
+  margin-bottom: 1.5mm;
   border: 1px solid var(--rc-gold);
   padding: 2mm;
   background: var(--rc-white);
+  flex-shrink: 0;
 }
 
 .rc-att-row {
@@ -335,47 +353,22 @@ body {
   flex-shrink: 0;
 }
 
-.rc-att-val {
-  color: var(--rc-text);
-  font-weight: 500;
-  font-size: 0.55rem;
-  margin-left: auto;
-  padding-right: 1.5mm;
-}
-
 .rc-att-pct {
   display: inline-block;
-  min-width: 34px;
+  min-width: 36px;
   text-align: center;
   font-size: 0.58rem;
   font-weight: 700;
   padding: 1px 3px;
-  border-radius: 1px;
-  letter-spacing: 0.3px;
+  border-radius: 2px;
 }
 
-.rc-att-pct.att-good {
-  background: var(--rc-green);
-  color: white;
-}
+.rc-att-pct.att-good     { background: var(--rc-green); color: white; }
+.rc-att-pct.att-moderate { background: var(--rc-gold);  color: var(--rc-dark); }
+.rc-att-pct.att-poor     { background: var(--rc-red);   color: white; }
 
-.rc-att-pct.att-moderate {
-  background: var(--rc-gold);
-  color: var(--rc-dark);
-}
-
-.rc-att-pct.att-poor {
-  background: var(--rc-red);
-  color: white;
-}
-
-.rc-att-bar {
-  margin: 0.5mm 0 1.5mm;
-}
-
-.rc-att-bar:last-child {
-  margin-bottom: 0;
-}
+.rc-att-bar { margin: 0.5mm 0 1.5mm; }
+.rc-att-bar:last-child { margin-bottom: 0; }
 
 .rc-att-track {
   height: 5px;
@@ -388,28 +381,21 @@ body {
 .rc-att-fill {
   height: 100%;
   width: 0%;
-  transition: width 0.3s;
   min-width: 3%;
 }
 
-.rc-att-fill.att-good {
-  background: var(--rc-green);
-}
+.rc-att-fill.att-good     { background: var(--rc-green); }
+.rc-att-fill.att-moderate { background: var(--rc-gold); }
+.rc-att-fill.att-poor     { background: var(--rc-red); }
 
-.rc-att-fill.att-moderate {
-  background: var(--rc-gold);
-}
-
-.rc-att-fill.att-poor {
-  background: var(--rc-red);
-}
-
-/* Overall result box */
+/* Overall result box — fixed natural height, no flex:1 */
 .rc-result-box {
   border: 2px solid var(--rc-gold);
-  padding: 2mm;
+  padding: 2.5mm;
   background: var(--rc-white);
   text-align: center;
+  flex-shrink: 0;
+  margin-bottom: 1.5mm;
 }
 
 .rc-result-line {
@@ -432,28 +418,24 @@ body {
   letter-spacing: 0.5px;
 }
 
-.rc-result-badge.fail {
-  background: var(--rc-red);
-}
+.rc-result-badge.fail { background: var(--rc-red); }
 
 .rc-result-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 2mm;
+  gap: 1.5mm;
 }
 
-.rc-rstat {
-  text-align: center;
-}
+.rc-rstat { text-align: center; }
 
 .rc-rlabel {
-  font-size: 0.55rem;
+  font-size: 0.52rem;
   color: var(--rc-muted);
   font-weight: 600;
 }
 
 .rc-rval {
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   font-weight: 700;
   color: var(--rc-goldtext);
 }
@@ -466,6 +448,8 @@ body {
   border-collapse: collapse;
   font-size: 0.65rem;
   margin-bottom: 1.5mm;
+  table-layout: fixed;
+  flex-shrink: 0;
 }
 
 .rc-marks-table thead tr {
@@ -474,78 +458,82 @@ body {
 }
 
 .rc-marks-table th {
-  padding: 2px 3px;
+  padding: 2.5px 2px;
   font-weight: 600;
   text-align: center;
   border: 1px solid var(--rc-gold);
-  font-size: 0.6rem;
-  white-space: nowrap;
+  font-size: 0.58rem;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.2;
 }
 
 .rc-marks-table th:first-child {
   text-align: left;
-  padding-left: 4px;
+  padding-left: 3px;
+  white-space: normal;
 }
 
 .rc-marks-table td {
-  padding: 1.5px 3px;
+  padding: 2.5px 2px;
   border: 1px solid var(--rc-border);
   text-align: center;
   vertical-align: middle;
+  overflow: hidden;
 }
 
 .rc-marks-table td:first-child {
   text-align: left;
-  padding-left: 4px;
+  padding-left: 3px;
   font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .rc-marks-table tbody tr:nth-child(even) {
   background: var(--rc-section);
 }
 
-/* Component rows — visually recessive */
+/* Component rows */
 .rc-marks-table .rc-row-component td {
   color: #888888;
   font-size: 0.58rem;
   font-weight: 400;
 }
 .rc-marks-table .rc-row-component td:first-child {
-  padding-left: 10px;
+  padding-left: 8px;
   font-style: italic;
 }
 
-/* Aggregate rows — visually dominant */
+/* Aggregate rows */
 .rc-marks-table .rc-row-aggregate td {
   background: rgba(201, 168, 76, 0.14);
   font-weight: 700;
   color: var(--rc-text);
   border-bottom: 1.5px solid rgba(201, 168, 76, 0.35);
 }
-.rc-marks-table .rc-row-aggregate td:first-child {
-  font-weight: 700;
-}
+.rc-marks-table .rc-row-aggregate td:first-child { font-weight: 700; }
 
-/* Single-total rows — intermediate prominence */
+/* Single-total rows */
 .rc-marks-table .rc-row-single td {
   background: rgba(201, 168, 76, 0.06);
   font-weight: 600;
   border-bottom: 1px solid rgba(201, 168, 76, 0.2);
 }
 
-/* Total cell — dominant within row */
+/* Total cell — no underline */
 .rc-marks-table .rc-cell-total {
   font-weight: 700;
   color: var(--rc-goldtext);
-  text-decoration: underline;
-  text-decoration-thickness: 1.5px;
 }
 
-/* Consolidated cell — strong secondary emphasis */
+/* Consolidated cell */
 .rc-marks-table .rc-cell-consol {
   font-weight: 700;
   color: var(--rc-dark);
-  background: rgba(201, 168, 76, 0.06);
+  background: rgba(201, 168, 76, 0.08);
 }
 
 /* Grade pill */
@@ -553,15 +541,15 @@ body {
   display: inline-block;
   background: var(--rc-pillbg);
   color: var(--rc-gold);
-  font-size: 0.55rem;
+  font-size: 0.56rem;
   font-weight: 700;
-  padding: 1px 4px;
+  padding: 1px 3px;
   border-radius: 1rem;
   min-width: 18px;
   text-align: center;
 }
 
-/* Fail highlighting — subtle institutional tint */
+/* Fail highlighting */
 .rc-cell-fail {
   background: rgba(198, 40, 40, 0.09) !important;
   color: #7A1F1F;
@@ -579,7 +567,7 @@ body {
   color: var(--rc-gold);
   font-weight: 700;
   border-color: var(--rc-gold);
-  font-size: 0.65rem;
+  font-size: 0.62rem;
 }
 
 .rc-tt-label {
@@ -596,45 +584,85 @@ body {
   text-align: center;
 }
 
+/* Rank row */
+.rc-rank-row .rc-rank-cell {
+  font-size: 0.55rem;
+  font-style: italic;
+  color: var(--rc-muted);
+  text-align: right;
+  padding: 1px 3px;
+  border: 1px solid var(--rc-border);
+  background: var(--rc-section);
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    CO-SCHOLASTIC GRID
    ═══════════════════════════════════════════════════════════════════════════ */
 .rc-coscholastic {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1mm 3mm;
-  margin-bottom: 1.5mm;
+  margin-bottom: 0;
+  flex-shrink: 0;
+}
+
+.rc-coschol-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 0 0.8mm;
+  border-bottom: 1px solid var(--rc-border);
+  margin-bottom: 0.5mm;
+}
+
+.rc-coschol-hdr-terms {
+  display: flex;
+  gap: 4mm;
+}
+
+.rc-coschol-hdr-terms span {
+  min-width: 18px;
+  text-align: center;
+  font-size: 0.5rem;
+  font-weight: 700;
+  color: var(--rc-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 .rc-coschol-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   padding: 1px 0;
+  border-bottom: 1px dotted var(--rc-border);
 }
 
-.rc-coschol-label {
-  color: var(--rc-text);
+.rc-coschol-label { color: var(--rc-text); }
+
+.rc-coschol-terms {
+  display: flex;
+  gap: 4mm;
 }
 
 .rc-coschol-grade {
   display: inline-block;
   background: var(--rc-dark);
   color: var(--rc-gold);
-  font-size: 0.58rem;
+  font-size: 0.54rem;
   font-weight: 700;
-  padding: 1px 5px;
+  padding: 1px 4px;
   border-radius: 1rem;
   min-width: 18px;
   text-align: center;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   REMARKS
+   TEACHER'S REMARKS — fills remaining left panel space
    ═══════════════════════════════════════════════════════════════════════════ */
 .rc-remarks {
-  margin-bottom: 1.5mm;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .rc-remark-label {
@@ -642,6 +670,7 @@ body {
   font-weight: 700;
   color: var(--rc-muted);
   margin: 1.5mm 0 0.5mm;
+  flex-shrink: 0;
 }
 
 .rc-remark-text {
@@ -651,74 +680,21 @@ body {
   padding: 1.5mm;
   background: var(--rc-white);
   border-left: 2px solid var(--rc-gold);
-  line-height: 1.35;
-}
-
-.rc-principal-remark {
-  margin-top: 1.5mm;
-  padding: 1.5mm;
-  background: var(--rc-white);
-  border: 1px solid var(--rc-gold);
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   BAR CHART (pure CSS)
-   ═══════════════════════════════════════════════════════════════════════════ */
-.rc-bar-chart {
-  margin-bottom: 1.5mm;
-}
-
-.rc-bar-item {
-  display: flex;
-  align-items: center;
-  gap: 2mm;
-  margin-bottom: 1.5mm;
-  font-size: 0.65rem;
-}
-
-.rc-bar-label {
-  min-width: 70px;
-  max-width: 70px;
-  text-align: right;
-  color: var(--rc-text);
-  font-weight: 600;
-  font-size: 0.6rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.rc-bar-track {
+  line-height: 1.4;
   flex: 1;
-  height: 6px;
-  background: var(--rc-border);
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.rc-bar-fill {
-  height: 100%;
-  background: var(--rc-gold);
-  width: 0%;
-  transition: width 0.4s ease;
-}
-
-.rc-bar-val {
-  min-width: 28px;
-  text-align: right;
-  font-weight: 700;
-  color: var(--rc-goldtext);
-  font-size: 0.6rem;
+  min-height: 6mm;
+  margin: 0;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   CONSOLIDATED SUMMARY GRID
+   CONSOLIDATED SUMMARY GRID (in center panel)
    ═══════════════════════════════════════════════════════════════════════════ */
 .rc-summary-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 2mm;
-  margin-bottom: 1.5mm;
+  gap: 1.5mm;
+  margin-bottom: 0;
+  flex-shrink: 0;
 }
 
 .rc-sum-box {
@@ -741,33 +717,85 @@ body {
   font-size: 0.9rem;
   font-weight: 700;
   color: var(--rc-goldtext);
-  line-height: 1.1;
+  line-height: 1.15;
 }
 
 .rc-snote {
-  font-size: 0.5rem;
+  font-size: 0.48rem;
   color: var(--rc-muted);
   margin-top: 1px;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   FOOTER
+   PRINCIPAL REMARK — fills remaining right panel space
+   ═══════════════════════════════════════════════════════════════════════════ */
+.rc-principal-remark {
+  flex: 1;
+  padding: 2mm;
+  background: var(--rc-white);
+  border: 1px solid var(--rc-gold);
+  display: flex;
+  flex-direction: column;
+  min-height: 12mm;
+  margin-top: 1.5mm;
+}
+
+.rc-principal-remark-label {
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: var(--rc-muted);
+  margin-bottom: 1.5mm;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.rc-principal-remark .rc-remark-text {
+  flex: 1;
+  border-left: 2px solid var(--rc-gold);
+  background: transparent;
+  min-height: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FOOTER — generous signature space for Legal paper
    ═══════════════════════════════════════════════════════════════════════════ */
 .rc-footer {
   border-top: 2px solid var(--rc-gold);
-  padding: 2mm 5mm 3mm;
+  padding: 3mm 6mm 3mm;
   flex-shrink: 0;
-  margin-top: auto;
   position: relative;
   z-index: 1;
 }
 
+/* Signature blocks with proper space */
 .rc-signatures {
   display: flex;
   justify-content: space-between;
-  font-size: 0.65rem;
-  color: var(--rc-text);
+  gap: 6mm;
+  margin-bottom: 3mm;
+}
+
+.rc-sig-block {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.rc-sig-line {
+  width: 100%;
+  height: 14mm;        /* generous space to write the signature */
+  border-bottom: 1.5px solid var(--rc-dark);
   margin-bottom: 1.5mm;
+}
+
+.rc-sig-label {
+  font-size: 0.65rem;
+  color: var(--rc-muted);
+  font-weight: 600;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
 }
 
 .rc-date-issue {
@@ -797,26 +825,20 @@ body {
   font-size: 0.55rem;
 }
 
-.rc-center-text {
-  text-align: center;
-  flex: 1;
-}
-
-.rc-right-text {
-  text-align: right;
-}
+.rc-center-text { text-align: center; flex: 1; }
+.rc-right-text  { text-align: right; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    SCREEN STYLES (preview mode)
    ═══════════════════════════════════════════════════════════════════════════ */
 @media screen {
   body {
-    padding: 10px;
-    background: #E8E4DA;
+    padding: 12px;
+    background: #D8D4CA;
   }
 
   .report-card {
     border: 1px solid var(--rc-gold);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
   }
 }

@@ -216,6 +216,7 @@ const CONFIG = {
     schoolName: "St. Francis De Sales School",
     grandTotalMax: 600,
     markScheme: "senior",
+    passmark: 30,
     note: null,
     subjects: [
       { key: "mathematics",      label: "Mathematics",           isAggregate: false, components: [],                                                   countInTotal: true,  singleTotal: false },
@@ -256,6 +257,7 @@ const CONFIG = {
     schoolName: "St. Francis De Sales School",
     grandTotalMax: 600,
     markScheme: "senior",
+    passmark: 30,
     note: null,
     subjects: [
       { key: "mathematics",      label: "Mathematics",           isAggregate: false, components: [],                                                   countInTotal: true,  singleTotal: false },

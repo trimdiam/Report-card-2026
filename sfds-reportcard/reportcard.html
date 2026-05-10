@@ -35,7 +35,7 @@
         <div class="rc-body">
 
             <!-- ──────────────────────────────────────────────────────────────
-                 LEFT PANEL
+                 LEFT PANEL — profile, attendance, result, teacher remarks
                  ────────────────────────────────────────────────────────────── -->
             <aside class="rc-left">
 
@@ -57,7 +57,7 @@
                     <div class="rc-field"><span class="rc-flabel">Admission No.</span><span class="rc-fval" id="rcAdmissionNo">—</span></div>
                     <div class="rc-field"><span class="rc-flabel">Date of Birth</span><span class="rc-fval" id="rcDob">—</span></div>
                     <div class="rc-field"><span class="rc-flabel">Academic Year</span><span class="rc-fval" id="rcAcademicYear">2026–2027</span></div>
-                    <div class="rc-field"><span class="rc-flabel">Class & Section</span><span class="rc-fval" id="rcClassSection">—</span></div>
+                    <div class="rc-field"><span class="rc-flabel">Class &amp; Section</span><span class="rc-fval" id="rcClassSection">—</span></div>
                     <div class="rc-field"><span class="rc-flabel">House</span><span class="rc-fval" id="rcHouse">—</span></div>
                 </div>
 
@@ -93,22 +93,36 @@
                     <div class="rc-result-grid">
                         <div class="rc-rstat">
                             <div class="rc-rlabel">GRADE</div>
-                            <div class="rc-rval" id="rcOverallGrade">B+</div>
+                            <div class="rc-rval" id="rcOverallGrade">—</div>
                         </div>
                         <div class="rc-rstat">
                             <div class="rc-rlabel">%</div>
-                            <div class="rc-rval" id="rcOverallPct">68.8%</div>
+                            <div class="rc-rval" id="rcOverallPct">—</div>
                         </div>
                         <div class="rc-rstat">
                             <div class="rc-rlabel">CLASS RANK</div>
-                            <div class="rc-rval" id="rcOverallRank">53 / 80</div>
+                            <div class="rc-rval" id="rcOverallRank">—</div>
                         </div>
                     </div>
                 </div>
+
+                <!-- Teacher remarks moved here — fills remaining left panel space -->
+                <div class="rc-strip">
+                    <span class="rc-strip-marker">▸</span>
+                    <span>CLASS TEACHER'S REMARKS</span>
+                </div>
+
+                <div class="rc-remarks">
+                    <p class="rc-remark-label">TERM 1 OBSERVATION:</p>
+                    <p class="rc-remark-text" id="rcHyRemark">"—"</p>
+                    <p class="rc-remark-label">TERM 2 OBSERVATION:</p>
+                    <p class="rc-remark-text" id="rcFtRemark">"—"</p>
+                </div>
+
             </aside>
 
             <!-- ──────────────────────────────────────────────────────────────
-                 CENTER PANEL — TERM 1 (HALF YEARLY)
+                 CENTER PANEL — Term 1, Co-Curricular, Academic Results
                  ────────────────────────────────────────────────────────────── -->
             <div class="rc-center">
 
@@ -131,60 +145,17 @@
 
                 <div class="rc-strip">
                     <span class="rc-strip-marker">▸</span>
-                    <span>CO-CURRICULAR & ACTIVITY GRADES</span>
+                    <span>CO-CURRICULAR &amp; ACTIVITY GRADES</span>
                 </div>
 
                 <div class="rc-coscholastic" id="rcHyCoscholastic">
                     <!-- Dynamic grid -->
                 </div>
 
-                <div class="rc-strip">
+                <!-- Academic results summary moved here from right panel -->
+                <div class="rc-strip rc-strip-push">
                     <span class="rc-strip-marker">▸</span>
-                    <span>CLASS TEACHER'S REMARKS</span>
-                </div>
-
-                <div class="rc-remarks">
-                    <p class="rc-remark-label">TERM 1 OBSERVATION:</p>
-                    <p class="rc-remark-text" id="rcHyRemark">"—"</p>
-                    <p class="rc-remark-label">TERM 2 OBSERVATION:</p>
-                    <p class="rc-remark-text" id="rcFtRemark">"—"</p>
-                </div>
-            </div>
-
-            <!-- ──────────────────────────────────────────────────────────────
-                 RIGHT PANEL — TERM 2 (FINAL)
-                 ────────────────────────────────────────────────────────────── -->
-            <div class="rc-right">
-
-                <div class="rc-strip">
-                    <span class="rc-strip-marker">▸</span>
-                    <span>TERM 2 — ACADEMIC PERFORMANCE</span>
-                </div>
-
-                <table class="rc-marks-table" id="rcFtTable">
-                    <thead>
-                        <tr id="rcFtTableHead">
-                            <!-- Dynamic by scheme -->
-                        </tr>
-                    </thead>
-                    <tbody id="rcFtTableBody">
-                        <!-- Dynamic rows -->
-                    </tbody>
-                    <tfoot id="rcFtTableFoot"></tfoot>
-                </table>
-
-                <div class="rc-strip">
-                    <span class="rc-strip-marker">▸</span>
-                    <span>CONSOLIDATED SUBJECT PERFORMANCE (T1 + T2 out of 200)</span>
-                </div>
-
-                <div class="rc-bar-chart" id="rcBarChart">
-                    <!-- Dynamic CSS bars -->
-                </div>
-
-                <div class="rc-strip">
-                    <span class="rc-strip-marker">▸</span>
-                    <span>CONSOLIDATED SUMMARY</span>
+                    <span>ACADEMIC RESULTS — CONSOLIDATED</span>
                 </div>
 
                 <div class="rc-summary-grid">
@@ -216,9 +187,36 @@
                     </div>
                 </div>
 
+            </div>
+
+            <!-- ──────────────────────────────────────────────────────────────
+                 RIGHT PANEL — Term 2, Principal remark
+                 ────────────────────────────────────────────────────────────── -->
+            <div class="rc-right">
+
+                <div class="rc-strip">
+                    <span class="rc-strip-marker">▸</span>
+                    <span>TERM 2 — ACADEMIC PERFORMANCE</span>
+                </div>
+
+                <table class="rc-marks-table" id="rcFtTable">
+                    <thead>
+                        <tr id="rcFtTableHead">
+                            <!-- Dynamic by scheme -->
+                        </tr>
+                    </thead>
+                    <tbody id="rcFtTableBody">
+                        <!-- Dynamic rows -->
+                    </tbody>
+                    <tfoot id="rcFtTableFoot"></tfoot>
+                </table>
+
+                <!-- Principal remark fills remaining right panel space -->
                 <div class="rc-principal-remark">
+                    <div class="rc-principal-remark-label">▸ Principal's / Annual Remark</div>
                     <p class="rc-remark-text" id="rcPrincipalRemark">"—"</p>
                 </div>
+
             </div>
         </div>
 
@@ -227,15 +225,24 @@
              ═══════════════════════════════════════════════════════════════════ -->
         <footer class="rc-footer">
             <div class="rc-signatures">
-                <span>Class Teacher ____________</span>
-                <span>Parent / Guardian ____________</span>
-                <span>Principal ____________</span>
+                <div class="rc-sig-block">
+                    <div class="rc-sig-line"></div>
+                    <div class="rc-sig-label">Class Teacher</div>
+                </div>
+                <div class="rc-sig-block">
+                    <div class="rc-sig-line"></div>
+                    <div class="rc-sig-label">Parent / Guardian</div>
+                </div>
+                <div class="rc-sig-block">
+                    <div class="rc-sig-line"></div>
+                    <div class="rc-sig-label">Principal</div>
+                </div>
             </div>
             <div class="rc-date-issue">Date of Issue: ___ / ___ / ____</div>
 
-            <div class="rc-grade-scale">
+            <div class="rc-grade-scale" id="rcGradeScale">
                 O ≥90% | A+ 80–89% | A 70–79% | B+ 60–69% | B 50–59% | C 40–49% |
-                D 33–39% | F <33% – Fail | Pass mark: 40/100
+                D 33–39% | F &lt;33% – Fail | Pass mark: 40/100
             </div>
 
             <div class="rc-bottom-strip">

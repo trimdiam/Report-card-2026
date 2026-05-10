@@ -43,7 +43,17 @@ function formatPct(value) {
    ═══════════════════════════════════════════════════════════════════════════ */
 function render() {
   const data = loadData();
-  if (!data) return;
+  if (!data) {
+    document.body.innerHTML = `
+      <div style="font-family:'Segoe UI',sans-serif;text-align:center;padding:60px 20px;color:#555;background:#FAF8F3;min-height:100vh;box-sizing:border-box;">
+        <p style="font-size:2rem;margin-bottom:8px;">📋</p>
+        <h2 style="color:#2C2C2C;margin-bottom:12px;">No student data found</h2>
+        <p style="font-size:0.9rem;color:#888;margin-bottom:24px;">Please fill the mark entry form and click <strong>Preview Report Card</strong>.</p>
+        <a href="index.html" style="display:inline-block;background:#C9A84C;color:#fff;padding:8px 20px;border-radius:4px;font-weight:600;text-decoration:none;font-size:0.9rem;">← Go to Mark Entry Form</a>
+      </div>
+    `;
+    return;
+  }
 
   const config = getClassConfig(parseInt(data.class, 10));
   if (!config) {
@@ -69,6 +79,13 @@ function renderHeader(data, config) {
   document.getElementById('rcSchoolName').textContent = data.schoolName || config.schoolName;
   document.getElementById('rcClassNum').textContent = data.class || '—';
   document.getElementById('rcSection').textContent = data.section || '—';
+
+  const passmark = config.passmark || 40;
+  const scaleEl = document.getElementById('rcGradeScale');
+  if (scaleEl) {
+    scaleEl.textContent =
+      `O ≥90% | A+ 80–89% | A 70–79% | B+ 60–69% | B 50–59% | C 40–49% | D 33–39% | F <33% – Fail | Pass mark: ${passmark}/100`;
+  }
 
   const logo = document.getElementById('rcLogo');
   if (logo) {
@@ -156,6 +173,9 @@ function renderCenterPanel(data, config) {
   // Footer
   const hyCols = isStandard ? 6 : 5;
   const hyColspan = hyCols - 3;
+  const hyRankStr = data.halfYearly.rank
+    ? `Term 1 Rank: ${data.halfYearly.rank} / ${data.halfYearly.totalStudents || '—'}`
+    : '';
   document.getElementById('rcHyTableFoot').innerHTML = `
     <tr class="rc-term-total">
       <td colspan="${hyColspan}" class="rc-tt-label">Term 1 Total</td>
@@ -163,10 +183,11 @@ function renderCenterPanel(data, config) {
       <td class="rc-tt-val">${data.halfYearly.grandTotal}</td>
       <td class="rc-tt-grade">${data.halfYearly.grade}</td>
     </tr>
+    ${hyRankStr ? `<tr class="rc-rank-row"><td colspan="${hyCols}" class="rc-rank-cell">${hyRankStr}</td></tr>` : ''}
   `;
 
   // Co-scholastic (show Final Term grades as annual assessment)
-  document.getElementById('rcHyCoscholastic').innerHTML = buildCoScholastic(data.coScholastic, 'finalTerm', config);
+  document.getElementById('rcHyCoscholastic').innerHTML = buildCoScholastic(data.coScholastic, config);
 
   // Remarks
   document.getElementById('rcHyRemark').textContent = data.remarks.halfYearly ? `"${data.remarks.halfYearly}"` : '—';
@@ -187,7 +208,7 @@ function renderRightPanel(data, config) {
   } else {
     h += '<th>IA /20</th><th>TE /80</th>';
   }
-  h += '<th>Total /100</th><th>Consol. /200</th><th>Grade</th>';
+  h += '<th>Total /100</th><th>Csl. /200</th><th>Grade</th>';
   ftHead.innerHTML = h;
 
   // Table body
@@ -205,9 +226,6 @@ function renderRightPanel(data, config) {
       <td class="rc-tt-grade">${data.finalTerm.grade}</td>
     </tr>
   `;
-
-  // Bar chart
-  document.getElementById('rcBarChart').innerHTML = buildBarChart(data, config);
 
   // Summary
   const consol = data.consolidated;
@@ -227,8 +245,10 @@ function renderRightPanel(data, config) {
     : 0;
   document.getElementById('rcSumAtt').textContent = formatPct(avgAtt) + '%';
 
-  // Principal remark = Final Term remark
-  document.getElementById('rcPrincipalRemark').textContent = data.remarks.finalTerm ? `"${data.remarks.finalTerm}"` : '—';
+  const principalEl = document.getElementById('rcPrincipalRemark');
+  if (principalEl) {
+    principalEl.textContent = data.remarks.finalTerm ? `"${data.remarks.finalTerm}"` : '—';
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -238,8 +258,16 @@ function buildTableRows(term, data, config, isStandard, showConsol) {
   let html = '';
   const subjects = config.subjects;
   const termData = term === 'hy' ? data.halfYearly : data.finalTerm;
+  const passmark = config.passmark || 40;
+  const pmRatio  = passmark / 100;
 
-  // Helper: returns fail CSS class if value is below threshold
+  // Proportional sub-component fail thresholds
+  const iaThreshStd   = Math.round(10 * pmRatio);
+  const utThresh      = Math.round(30 * pmRatio);
+  const examThreshStd = Math.round(60 * pmRatio);
+  const iaThreshSen   = Math.round(20 * pmRatio);
+  const examThreshSen = Math.round(80 * pmRatio);
+
   const failCls = (val, threshold) =>
     (val !== undefined && val !== null && val !== '' && val < threshold) ? ' rc-cell-fail' : '';
 
@@ -247,7 +275,7 @@ function buildTableRows(term, data, config, isStandard, showConsol) {
     const subjData = termData.subjects[subj.key] || {};
     const total = subjData.total || 0;
     const grade = getGradeFromMarks(total);
-    const gradeFail = (grade === 'D' || grade === 'F') ? ' fail' : '';
+    const gradeFail = total < passmark ? ' fail' : '';
 
     let cls = 'rc-row-normal';
     if (subj.isAggregate) cls = 'rc-row-aggregate';
@@ -262,33 +290,33 @@ function buildTableRows(term, data, config, isStandard, showConsol) {
     if (subj.isAggregate) {
       const blanks = isStandard ? 3 : 2;
       for (let i = 0; i < blanks; i++) html += '<td>—</td>';
-      html += `<td class="rc-cell-total${failCls(subjData.total, 40)}">${total}</td>`;
+      html += `<td class="rc-cell-total${failCls(subjData.total, passmark)}">${total}</td>`;
       if (showConsol) {
-        html += `<td class="rc-cell-consol${failCls(consolSubj?.total, 80)}">${consolTotal}</td>`;
+        html += `<td class="rc-cell-consol${failCls(consolSubj?.total, passmark * 2)}">${consolTotal}</td>`;
       }
       html += `<td class="rc-cell-grade"><span class="rc-grade-pill${gradeFail}">${grade}</span></td>`;
     }
     else if (subj.singleTotal) {
       const blanks = isStandard ? 3 : 2;
       for (let i = 0; i < blanks; i++) html += '<td></td>';
-      html += `<td class="rc-cell-total${failCls(subjData.total, 40)}">${total}</td>`;
+      html += `<td class="rc-cell-total${failCls(subjData.total, passmark)}">${total}</td>`;
       if (showConsol) {
-        html += `<td class="rc-cell-consol${failCls(consolSubj?.total, 80)}">${consolTotal}</td>`;
+        html += `<td class="rc-cell-consol${failCls(consolSubj?.total, passmark * 2)}">${consolTotal}</td>`;
       }
       html += `<td class="rc-cell-grade"><span class="rc-grade-pill${gradeFail}">${grade}</span></td>`;
     }
     else {
       if (isStandard) {
-        html += `<td class="${failCls(subjData.ia, 4)}">${subjData.ia !== undefined ? subjData.ia : '—'}</td>`;
-        html += `<td class="${failCls(subjData.ut, 12)}">${subjData.ut !== undefined ? subjData.ut : '—'}</td>`;
-        html += `<td class="${failCls(subjData.exam, 24)}">${subjData.exam !== undefined ? subjData.exam : '—'}</td>`;
+        html += `<td class="${failCls(subjData.ia, iaThreshStd)}">${subjData.ia !== undefined ? subjData.ia : '—'}</td>`;
+        html += `<td class="${failCls(subjData.ut, utThresh)}">${subjData.ut !== undefined ? subjData.ut : '—'}</td>`;
+        html += `<td class="${failCls(subjData.exam, examThreshStd)}">${subjData.exam !== undefined ? subjData.exam : '—'}</td>`;
       } else {
-        html += `<td class="${failCls(subjData.ia, 8)}">${subjData.ia !== undefined ? subjData.ia : '—'}</td>`;
-        html += `<td class="${failCls(subjData.exam, 32)}">${subjData.exam !== undefined ? subjData.exam : '—'}</td>`;
+        html += `<td class="${failCls(subjData.ia, iaThreshSen)}">${subjData.ia !== undefined ? subjData.ia : '—'}</td>`;
+        html += `<td class="${failCls(subjData.exam, examThreshSen)}">${subjData.exam !== undefined ? subjData.exam : '—'}</td>`;
       }
-      html += `<td class="rc-cell-total${failCls(subjData.total, 40)}">${total}</td>`;
+      html += `<td class="rc-cell-total${failCls(subjData.total, passmark)}">${total}</td>`;
       if (showConsol) {
-        html += `<td class="rc-cell-consol${failCls(consolSubj?.total, 80)}">${consolTotal}</td>`;
+        html += `<td class="rc-cell-consol${failCls(consolSubj?.total, passmark * 2)}">${consolTotal}</td>`;
       }
       html += `<td class="rc-cell-grade"><span class="rc-grade-pill${gradeFail}">${grade}</span></td>`;
     }
@@ -302,16 +330,25 @@ function buildTableRows(term, data, config, isStandard, showConsol) {
 /* ═══════════════════════════════════════════════════════════════════════════
    9. CO-SCHOLASTIC BUILDER
    ═══════════════════════════════════════════════════════════════════════════ */
-function buildCoScholastic(coData, termKey, config) {
+function buildCoScholastic(coData, config) {
   if (!coData) return '';
-  let html = '';
+  let html = `
+    <div class="rc-coschol-header">
+      <span></span>
+      <span class="rc-coschol-hdr-terms"><span>T1</span><span>T2</span></span>
+    </div>
+  `;
   for (const item of config.coScholastic) {
     const vals = coData[item.key];
-    const grade = vals?.[termKey] || '—';
+    const hyGrade = vals?.halfYearly || '—';
+    const ftGrade = vals?.finalTerm  || '—';
     html += `
       <div class="rc-coschol-item">
         <span class="rc-coschol-label">${item.label}</span>
-        <span class="rc-coschol-grade">${grade}</span>
+        <span class="rc-coschol-terms">
+          <span class="rc-coschol-grade">${hyGrade}</span>
+          <span class="rc-coschol-grade">${ftGrade}</span>
+        </span>
       </div>
     `;
   }
@@ -319,31 +356,7 @@ function buildCoScholastic(coData, termKey, config) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   10. BAR CHART BUILDER (pure CSS)
-   ═══════════════════════════════════════════════════════════════════════════ */
-function buildBarChart(data, config) {
-  let html = '';
-  for (const subj of config.subjects) {
-    if (!subj.countInTotal) continue;
-    const consol = data.consolidated.subjects[subj.key];
-    if (!consol) continue;
-    const score = consol.total || 0;
-    const pct = Math.min((score / 200) * 100, 100);
-    html += `
-      <div class="rc-bar-item">
-        <div class="rc-bar-label">${subj.label}</div>
-        <div class="rc-bar-track">
-          <div class="rc-bar-fill" style="width:${pct}%;"></div>
-        </div>
-        <div class="rc-bar-val">${score}</div>
-      </div>
-    `;
-  }
-  return html;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   11. FUTURE-READY API SURFACE
+   10. FUTURE-READY API SURFACE
    ═══════════════════════════════════════════════════════════════════════════
    The window.SFDS namespace exposes the report-card renderer for external
    orchestration (e.g., bulk-print loops, Firebase hydration, JSON import).

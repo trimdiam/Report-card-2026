@@ -393,13 +393,14 @@ function updateGrandTotal(prefix, totals) {
 }
 
 function updateResult(hyTotals, ftTotals) {
+  const passmark = currentConfig.passmark || 40;
   let pass = true;
 
   for (const subj of currentConfig.subjects) {
     if (!subj.countInTotal) continue;
     const hy = hyTotals[subj.key];
     const ft = ftTotals[subj.key];
-    if (hy < 40 || ft < 40) {
+    if (hy < passmark || ft < passmark) {
       pass = false;
       break;
     }
@@ -497,10 +498,11 @@ function collectFormData() {
     };
   }
 
+  const passmark = currentConfig.passmark || 40;
   let result = 'PASS';
   for (const subj of currentConfig.subjects) {
     if (!subj.countInTotal) continue;
-    if (hyTotals[subj.key] < 40 || ftTotals[subj.key] < 40) {
+    if (hyTotals[subj.key] < passmark || ftTotals[subj.key] < passmark) {
       result = 'FAIL';
       break;
     }
@@ -580,8 +582,8 @@ function handlePrint() {
     return;
   }
   sessionStorage.setItem('sfds_studentData', JSON.stringify(data));
-  const win = window.open('reportcard.html', '_blank');
-  // Print trigger handled in reportcard.html
+  const win = window.open('reportcard.html?print=1', '_blank');
+  // Print trigger handled in reportcard.html via ?print=1 param
 }
 
 function handleSaveJson() {
