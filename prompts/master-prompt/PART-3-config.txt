@@ -1,0 +1,148 @@
+────────────────────────────────────────────────────────────────────────────────
+PART 3: CLASS CONFIGURATION (config.js)
+────────────────────────────────────────────────────────────────────────────────
+
+Build a CONFIG object in config.js. Each class entry defines:
+  - schoolName       : string (differs for upper classes)
+  - grandTotalMax    : number
+  - markScheme       : "standard" | "senior"
+      standard = IA(10) + UnitTest(30) + Exam(60) = 100
+      senior   = IA(20) + Exam(80) = 100  [Class IX & X only]
+  - subjects         : array of subject objects
+  - coScholastic     : array of activity subject names
+  - aggregates       : array of aggregate definitions
+
+Subject object shape:
+  {
+    key        : "mathematics",          // unique key
+    label      : "Mathematics",          // display name
+    isAggregate: false,                  // true = auto-sum, no input
+    components : [],                     // keys of subjects that feed this
+    countInTotal: true,                  // false = component rows excluded
+    singleTotal : false                  // true = Spelling-type, one input only
+  }
+
+Aggregate logic:
+  - Component subjects (e.g., Geography, Civics, History) have
+    countInTotal: false — they display but do NOT add to Grand Total
+  - The aggregate row (e.g., S.Science G+C+H) has countInTotal: true
+    and isAggregate: true — it IS added to Grand Total
+  - English I and English II similarly feed into English (I+II) aggregate
+
+CLASS CONFIGURATIONS:
+
+  CLASS III:
+    schoolName    : "St. Francis De Sales School"
+    grandTotalMax : 800
+    markScheme    : "standard"
+    subjects:
+      Mathematics, Science, Social Studies, Hindi,
+      Spelling (singleTotal: true),
+      English I, English II, Khasi/Alt. English
+    coScholastic:
+      P.E., Singing, Discipline, G.K., Arts & Craft,
+      Neatness, Val. Edu./Catechism
+
+  CLASS IV:
+    schoolName    : "St. Francis De Sales School"
+    grandTotalMax : 900
+    markScheme    : "standard"
+    subjects:
+      Mathematics, Science, Computer, Hindi,
+      Spelling (singleTotal: true),
+      English I, English II, Social Studies,
+      Khasi/Alt. English
+    coScholastic:
+      P.E., Singing, Discipline, G.K., Arts & Craft,
+      Neatness, Val. Edu./Catechism
+
+  CLASS V:
+    schoolName    : "St. Francis De Sales School"
+    grandTotalMax : 900
+    markScheme    : "standard"
+    note          : "Computer Practical included in Unit Test column"
+    subjects:
+      Mathematics, Science, Computer, Hindi,
+      Spelling (singleTotal: true),
+      English I, English II, Social Studies,
+      Khasi/Alt. English
+    coScholastic:
+      P.E., Singing, Discipline, G.K., Arts & Craft,
+      Neatness, Val. Edu./Catechism
+
+  CLASS VI:
+    schoolName    : "St. Francis De Sales School"
+    grandTotalMax : 800
+    markScheme    : "standard"
+    note          : "Computer Practical included in Unit Test column"
+    subjects:
+      Mathematics, Science, Computer, Hindi,
+      Geography      (countInTotal: false, feeds: S.Science),
+      Civics         (countInTotal: false, feeds: S.Science),
+      History        (countInTotal: false, feeds: S.Science),
+      S.Science(G+C+H) (isAggregate: true, countInTotal: true),
+      English I      (countInTotal: false, feeds: English I+II),
+      English II     (countInTotal: false, feeds: English I+II),
+      English (I+II) (isAggregate: true, countInTotal: true),
+      Health Education,
+      Khasi/Alt. English
+    coScholastic:
+      P.E., Singing, Discipline, G.K., Arts & Craft,
+      Neatness, Val. Edu./Catechism
+
+  CLASS VII:
+    schoolName    : "St. Francis De Sales School"
+    grandTotalMax : 700
+    markScheme    : "standard"
+    note          : "Computer Practical included in Unit Test column"
+    subjects:
+      Mathematics, Science, Computer,
+      Geography      (countInTotal: false, feeds: S.Science),
+      Civics         (countInTotal: false, feeds: S.Science),
+      History        (countInTotal: false, feeds: S.Science),
+      S.Science(G+C+H+E) (isAggregate: true, countInTotal: true),
+      English I      (countInTotal: false, feeds: English I+II),
+      English II     (countInTotal: false, feeds: English I+II),
+      English (I+II) (isAggregate: true, countInTotal: true),
+      H.Education,
+      Khasi/Alt. English
+    coScholastic:
+      P.E., Singing/Music, Discipline, G.K., Arts & Craft,
+      Val. Edu./Catechism
+    (NOTE: Neatness is removed from Class VII onwards)
+
+  CLASS VIII:
+    schoolName    : "St. Francis De Sales Sec. School"
+    grandTotalMax : 700
+    markScheme    : "standard"
+    note          : "Computer Practical included in Unit Test column"
+    subjects      : same as Class VII
+    coScholastic  : same as Class VII
+
+  CLASS IX:
+    schoolName    : "St. Francis De Sales School"
+    grandTotalMax : 600
+    markScheme    : "senior"   ← IA(20) + Exam(80) = 100, NO Unit Test
+    subjects:
+      Mathematics,
+      Physics        (countInTotal: false, feeds: Science),
+      Chemistry      (countInTotal: false, feeds: Science),
+      Biology        (countInTotal: false, feeds: Science),
+      Science(P+C+B) (isAggregate: true, countInTotal: true),
+      Geography      (countInTotal: false, feeds: S.Science),
+      Civics         (countInTotal: false, feeds: S.Science),
+      History        (countInTotal: false, feeds: S.Science),
+      Economics      (countInTotal: false, feeds: S.Science),
+      S.Science(G+C+H+E) (isAggregate: true, countInTotal: true),
+      English I      (countInTotal: false, feeds: English I+II),
+      English II     (countInTotal: false, feeds: English I+II),
+      English (I+II) (isAggregate: true, countInTotal: true),
+      H.Education,
+      Khasi/Alt. English
+    coScholastic:
+      Value Edu./Catechism, Handwriting, Singing, P.E.,
+      Discipline, SUPW
+
+  CLASS X:
+    Same as Class IX exactly.
+    schoolName : "St. Francis De Sales School"

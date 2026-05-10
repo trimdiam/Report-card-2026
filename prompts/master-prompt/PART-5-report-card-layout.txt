@@ -1,0 +1,142 @@
+────────────────────────────────────────────────────────────────────────────────
+PART 5: INDIVIDUAL REPORT CARD LAYOUT (reportcard.html + reportcard.css)
+────────────────────────────────────────────────────────────────────────────────
+
+PAPER SIZE: Legal (8.5" × 14" / 216mm × 356mm), portrait
+CSS rule: @page { size: legal portrait; margin: 8mm; }
+
+The report card is a single HTML page that receives data via URL query
+parameters or sessionStorage from the form. It renders the full card
+and is print-ready.
+
+LAYOUT (top to bottom):
+
+  ── HEADER BAR (full width, dark background #2C2C2C) ──────────────────────
+  | [Logo 50px]  ST. FRANCIS DE SALES SCHOOL (Georgia, large, gold)        |
+  |              Laitkor, Shillong — Meghalaya (small, cream)               |
+  |              Affiliated to CBSE | Ph: 9612946550 | sfslaitkor@gmail.com |
+  |              ANNUAL REPORT CARD · ACADEMIC YEAR 2026–2027 (gold, caps) |
+  |                                              [CLASS X / Section A box]  |
+  ──────────────────────────────────────────────────────────────────────────
+
+  ── BODY (3-column grid) ──────────────────────────────────────────────────
+
+  LEFT PANEL (fixed ~220px wide, cream bg):
+
+    ▸ STUDENT PROFILE
+    ┌──────────────────────────┐
+    │   [Passport Photo Box]   │  ← dashed gold border, 80×100px
+    │   Affix Photo Here       │
+    └──────────────────────────┘
+    Student Name (bold, large)
+    Roll No. [XX] | Section [A] | Class [X]
+
+    Field rows (label: value):
+      Admission No.
+      Date of Birth
+      Academic Year
+      Class & Section
+      House
+
+    ▸ ATTENDANCE
+    Half Yearly:  [present] / [total] days  = XX%  [progress bar gold]
+    Final Term:   [present] / [total] days  = XX%  [progress bar gold]
+
+    ▸ OVERALL RESULT
+    ┌──────────────────────────┐
+    │ ACADEMIC RESULT  [PASS] │  ← gold border box
+    │ GRADE    %    CLASS RANK│
+    │  B+    68.8%   53 / 80  │
+    └──────────────────────────┘
+    (Values based on Final Term consolidated data)
+
+  CENTER PANEL — TERM 1 (HALF YEARLY):
+
+    ▸ TERM 1 — ACADEMIC PERFORMANCE  (dark strip, gold text)
+
+    Table columns:
+      Subject | IA /10 | UT /30 | TE /60 | Total /100 | Grade
+      (For senior: Subject | IA /20 | TE /80 | Total /100 | Grade)
+
+    Row rules:
+      - Component rows (Geography, Civics etc.): lighter tint, smaller font
+      - Aggregate rows (S.Science, English I+II): slightly bolder, tinted gold
+      - Alternating row colors: white / #F5F2EA
+      - Total column: underlined value (like the sample design)
+      - Grade column: dark pill badge with grade text
+
+    Term 1 Total row (bold):
+      "Term 1 Total" | Max: [grandTotalMax] | [grandTotal] | [grade]
+
+    ▸ CO-CURRICULAR & ACTIVITY GRADES  (dark strip)
+
+    Two-column grid of activity subjects with grade badges:
+      Physical Education  [B]    Music            [B]
+      Art & Craft         [A]    Life Skills       [A]
+      Discipline/Conduct  [B+]   ... etc.
+
+    ▸ CLASS TEACHER'S REMARKS  (dark strip)
+
+    TERM 1 OBSERVATION:
+    "[Half Yearly remark text — italic, quoted style]"
+
+    TERM 2 OBSERVATION:
+    "[Final Term remark text — italic, quoted style]"
+
+  RIGHT PANEL — TERM 2 (FINAL):
+
+    ▸ TERM 2 — ACADEMIC PERFORMANCE  (dark strip, gold text)
+
+    Table columns:
+      Subject | IA /10 | UT /30 | TE /60 | Total /100 | Consol. /200 | Grade
+      (Consol. = Term1 Total + Term2 Total per subject, auto-calculated)
+      (For senior: Subject | IA /20 | TE /80 | Total /100 | Consol. /200 | Grade)
+
+    Term 2 Total row (bold):
+      "Term 2 Total" | Max: [grandTotalMax] | [grandTotal] | [consolidated] | [grade]
+
+    ▸ CONSOLIDATED SUBJECT PERFORMANCE (T1 + T2 out of 200)  (dark strip)
+
+    Horizontal bar chart per subject:
+      Subject name | [████████████░░░] | consolidated score (e.g., 156)
+      Bar color: gold (#C9A84C), track color: #E0D9C8
+      Bar width proportional to score out of 200
+      Only countInTotal subjects shown here
+
+    ▸ CONSOLIDATED SUMMARY  (dark strip)
+
+    2×3 grid of stat boxes (cream bg, gold border):
+      TOTAL MARKS        PERCENTAGE        OVERALL GRADE
+      [1376]             [68.8%]           [B+]
+      out of [2000]
+
+      CLASS RANK         RESULT            ATTENDANCE
+      [53]               [PASS]            [65%]
+      of [80] students   (green/red)       [present/total days]
+
+    ▸ PRINCIPAL'S / ANNUAL REMARK  (below summary, cream box, gold border)
+    "[Final Term remark text repeated here as the headmistress remark]"
+    OR a separate Headmistress remark field if different from teacher remark.
+
+  ── FOOTER (full width) ───────────────────────────────────────────────────
+  Signature line:
+    Class Teacher ____________  Parent / Guardian ____________  Principal ____________
+  Date of Issue: ___ / ___ / ____
+
+  Grading scale bar (small, bottom):
+    O ≥90% | A+ 80–89% | A 70–79% | B+ 60–69% | B 50–59% | C 40–49% |
+    D 33–39% | F <33% – Fail | Pass mark: 40/100
+
+  Bottom strip (dark, small text):
+    St. Francis De Sales School · Laitkor, Shillong, Meghalaya
+    [center] Computer-generated document | No signature required for validity
+    [right] Academic Year 2026–27 | Affiliated to CBSE
+  ──────────────────────────────────────────────────────────────────────────
+
+PRINT CSS RULES for reportcard.html:
+  @media print {
+    body { margin: 0; background: white; }
+    .no-print { display: none !important; }
+    @page { size: legal portrait; margin: 8mm; }
+    .report-card { page-break-after: always; }
+  }

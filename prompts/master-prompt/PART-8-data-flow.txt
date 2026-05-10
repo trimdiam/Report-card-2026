@@ -1,0 +1,73 @@
+────────────────────────────────────────────────────────────────────────────────
+PART 8: DATA FLOW
+────────────────────────────────────────────────────────────────────────────────
+
+1. Teacher fills the form on index.html
+2. On "Preview Report Card" click:
+   a. Collect all form data into a JS object (studentData)
+   b. Store in sessionStorage as JSON string
+   c. Open reportcard.html in new tab
+   d. reportcard.html reads sessionStorage, renders the full card
+3. On "Print Report Card" click:
+   a. Same as above but immediately calls window.print() after render
+4. On "Save to JSON" click:
+   a. Download studentData as [StudentName]_[Class]_[Session].json
+5. On "Load from JSON" click:
+   a. File picker opens
+   b. Loaded JSON repopulates the form
+6. On "Add to Class List" click:
+   a. Push studentData into a classListArray in sessionStorage
+   b. Show confirmation: "Student [Name] added. Total: [N] students."
+7. On "View Class Marksheet" click:
+   a. Open marksheet.html
+   b. marksheet.html reads classListArray from sessionStorage
+   c. Renders the consolidated table for all added students
+   d. Sorts by Roll Number
+
+studentData object shape:
+  {
+    schoolName    : string,
+    session       : string,
+    class         : string,
+    section       : string,
+    classTeacher  : string,
+    student: {
+      name          : string,
+      rollNo        : number,
+      admissionNo   : string,
+      dob           : string,
+      house         : string
+    },
+    halfYearly: {
+      subjects      : { [key]: { ia, ut, exam, total } },
+      grandTotal    : number,
+      percentage    : number,
+      grade         : string,
+      rank          : number,
+      totalStudents : number,
+      attendance    : { present: number, total: number }
+    },
+    finalTerm: {
+      subjects      : { [key]: { ia, ut, exam, total } },
+      grandTotal    : number,
+      percentage    : number,
+      grade         : string,
+      rank          : number,
+      totalStudents : number,
+      attendance    : { present: number, total: number }
+    },
+    consolidated: {
+      subjects      : { [key]: { term1, term2, total } },
+      grandTotal    : number,
+      percentage    : number,
+      grade         : string,
+      result        : "PASS" | "FAIL"
+    },
+    coScholastic: {
+      [subjectKey]  : { halfYearly: string, finalTerm: string }
+    },
+    remarks: {
+      halfYearly    : string,
+      finalTerm     : string
+    }
+  }

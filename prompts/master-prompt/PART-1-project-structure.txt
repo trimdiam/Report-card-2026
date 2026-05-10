@@ -1,0 +1,22 @@
+────────────────────────────────────────────────────────────────────────────────
+PART 1: PROJECT STRUCTURE
+────────────────────────────────────────────────────────────────────────────────
+
+Create the following file structure:
+
+  sfds-reportcard/
+  ├── index.html              ← Main entry: class selector + mark entry form
+  ├── reportcard.html         ← Individual report card template (rendered + printed)
+  ├── marksheet.html          ← Class marksheet template (all students, printed)
+  ├── css/
+  │   ├── main.css            ← Form/UI styles
+  │   ├── reportcard.css      ← Report card layout styles (legal size print)
+  │   └── marksheet.css       ← Class marksheet layout styles (A3 print)
+  ├── js/
+  │   ├── config.js           ← Class configurations (subjects, schemes, totals)
+  │   ├── form.js             ← Mark entry form logic + calculations
+  │   ├── render.js           ← Renders data into report card template
+  │   ├── marksheet.js        ← Renders class marksheet
+  │   └── print.js            ← Print handlers for both document types
+  └── assets/
+      └── logo.png            ← School logo (placeholder if not available)

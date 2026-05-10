@@ -1,0 +1,71 @@
+────────────────────────────────────────────────────────────────────────────────
+PART 9: IMPORTANT IMPLEMENTATION NOTES
+────────────────────────────────────────────────────────────────────────────────
+
+1. DO NOT use any external CSS framework (no Bootstrap, no Tailwind).
+   Write all CSS from scratch using the color palette defined in Part 2.
+
+2. DO NOT use any JavaScript framework (no React, no Vue).
+   Pure Vanilla JS only.
+
+3. The report card HTML template in reportcard.html must look
+   IDENTICAL on screen and when printed. Test both views.
+
+4. Aggregate rows in the marks table must be visually distinct:
+   slightly bolder font, a subtle gold-tinted background row,
+   and "(auto)" or a formula indicator hidden from print.
+
+5. The bar chart in the Consolidated Subject Performance section
+   must be built using pure CSS (div with width % set by JS).
+   Do NOT use any chart library.
+
+6. Component subject rows (Geography, Civics, History etc.) that
+   do NOT count toward Grand Total must be visually de-emphasized:
+   smaller font, lighter text, slight indent on the subject name.
+
+7. All MAX values must be displayed in column headers:
+   e.g., "IA /10" not just "IA" — this matches the physical card format.
+
+8. The Consolidated column in Term 2 table shows "/200" in the header
+   (Term1 Total + Term2 Total per subject, max 200).
+
+9. The overall consolidated grand total is out of (grandTotalMax × 2).
+   E.g., Class X: 600 × 2 = 1200. Class III: 800 × 2 = 1600.
+
+10. For Spelling (singleTotal subjects): show only one input column
+    spanning IA+UT+Exam columns, labeled "Total" directly.
+    No breakdown shown for these subjects.
+
+11. When class changes in the form, ALL subject rows, calculations,
+    and column headers must re-render dynamically. Do not reload the page.
+    Use JS DOM manipulation to rebuild the table.
+
+12. Session is pre-filled as "2026-2027" and is read-only in the form.
+
+13. School name must auto-switch based on class:
+    Classes III–VII, IX, X → "St. Francis De Sales School"
+    Class VIII              → "St. Francis De Sales Sec. School"
+
+14. Date of Issue field in the report card footer is blank (printed,
+    filled by hand) — render as: "Date of Issue: ___ / ___ / ____"
+
+15. Ensure the report card fits on ONE legal page. If content overflows,
+    reduce font sizes proportionally. Test with Class IX (most subjects).
+
+16. The grading scale at the very bottom of the printed page must
+    always be visible and must not be cut off by the page margin.
+
+17. Add a small "Computer-generated document | Verify with school records"
+    note in the footer — matches the sample design.
+
+18. No external images except the school logo. If logo file is missing,
+    show a circular placeholder with "SFS" text in gold on dark bg.
+
+19. The CLASS badge (top right of header) shows:
+    "CLASS [X]" on line 1
+    "Section [A]" on line 2
+    "2026 – 27" on line 3
+    Dark background, gold text, fixed width box.
+
+20. All currency/number formatting: plain integers for marks, one decimal
+    for percentages (e.g., 68.8% not 68.80%).

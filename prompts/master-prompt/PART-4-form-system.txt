@@ -1,0 +1,70 @@
+────────────────────────────────────────────────────────────────────────────────
+PART 4: MARK ENTRY FORM (index.html + form.js)
+────────────────────────────────────────────────────────────────────────────────
+
+The form is the data entry interface for teachers. It is NOT the report card.
+It is a clean, functional form that feeds data into the report card renderer.
+
+FORM SECTIONS:
+
+  SECTION A — CLASS & STUDENT INFO
+    - Class selector dropdown (III, IV, V, VI, VII, VIII, IX, X)
+      → On change: reload subject rows + mark scheme dynamically
+    - Student Name (text)
+    - Roll Number (number)
+    - Section (text, optional — e.g., "A")
+    - Class Teacher Name (text)
+    - Admission Number (text)
+    - Date of Birth (date)
+    - House (text — e.g., "Francis House")
+    - Session (pre-filled: "2026-2027", read-only)
+
+  SECTION B — HALF YEARLY MARKS TABLE
+    Rendered dynamically based on selected class.
+    Columns for standard scheme: Subject | IA(/10) | UT(/30) | Exam(/60) | Total
+    Columns for senior scheme:   Subject | IA(/20) | Exam(/80) | Total
+    - Each input enforces its max value on blur (show error if exceeded)
+    - Total auto-calculates on any input change (read-only)
+    - Aggregate rows auto-calculate (read-only, visually distinct)
+    - Grand Total row auto-calculates (read-only, bold)
+    - Percentage auto-calculates: (grandTotal / grandTotalMax) × 100
+    - Attendance row: two inputs → [Present] / [Total Working Days]
+
+  SECTION C — FINAL TERM MARKS TABLE
+    Same structure as Section B.
+    Consolidated column auto-calculates: HY Total + FT Total per subject
+
+  SECTION D — CO-SCHOLASTIC GRADES
+    For each co-scholastic subject (from class config):
+      - Subject label
+      - Half Yearly grade dropdown (A+, A, B+, B, C+, C, D)
+      - Final Term grade dropdown (A+, A, B+, B, C+, C, D)
+
+  SECTION E — REMARKS
+    - Half Yearly Remark: textarea (class teacher types freely)
+    - Final Term Remark: textarea (class teacher types freely, include
+      promotion status e.g. "Promoted to Class IV (Four)")
+
+  SECTION F — RANK
+    - Half Yearly Rank: number input (manual entry in Phase 1)
+    - Final Term Rank: number input (manual entry in Phase 1)
+    - Total students in class: number input (for display as "Rank / Total")
+    - Show a note: "Rank is eligible only if student passes all subjects
+      (40+ in each). Dense ranking — no rank skipped for ties."
+
+  SECTION G — RESULT
+    Auto-determined:
+    - If ALL countInTotal subjects score ≥ 40 in BOTH terms → PASS
+    - If ANY countInTotal subject scores < 40 in either term → FAIL
+    - Display auto-result, allow teacher to see it (read-only indicator)
+
+FORM ACTIONS (buttons at bottom):
+    [Preview Report Card]   → renders reportcard.html in a new tab/window
+    [Print Report Card]     → triggers print of the report card (legal size)
+    [Save to JSON]          → downloads current form data as .json file
+    [Load from JSON]        → loads previously saved .json to repopulate form
+    [Clear Form]            → resets all fields (with confirmation prompt)
+    [Add to Class List]     → saves current student to session memory
+                              for class marksheet generation
+    [View Class Marksheet]  → opens marksheet.html populated with all
+                              students added to session memory

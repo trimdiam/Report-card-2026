@@ -1,0 +1,20 @@
+────────────────────────────────────────────────────────────────────────────────
+PART 11: DELIVERABLES CHECKLIST
+────────────────────────────────────────────────────────────────────────────────
+
+  [ ] config.js — all 8 classes fully configured
+  [ ] index.html — complete mark entry form, all sections
+  [ ] main.css — form UI styled with cream/gold/dark theme
+  [ ] form.js — dynamic form, full calculation logic, validation
+  [ ] reportcard.html — full report card layout, both terms, all sections
+  [ ] reportcard.css — screen + print styles, legal page size
+  [ ] render.js — populates report card from sessionStorage data
+  [ ] marksheet.html — class consolidated sheet layout
+  [ ] marksheet.css — A3 landscape print styles
+  [ ] marksheet.js — renders all students from classListArray
+  [ ] print.js — print trigger functions for both document types
+  [ ] Save/Load JSON working
+  [ ] All 8 class types tested
+  [ ] Print preview verified for legal (report card) and A3 (marksheet)
+  [ ] No console errors on any page
+  [ ] No broken layouts on screen or print

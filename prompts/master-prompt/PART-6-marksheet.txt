@@ -1,0 +1,41 @@
+────────────────────────────────────────────────────────────────────────────────
+PART 6: CLASS MARKSHEET (marksheet.html + marksheet.css)
+────────────────────────────────────────────────────────────────────────────────
+
+PAPER SIZE: A3 landscape (420mm × 297mm)
+CSS rule: @page { size: A3 landscape; margin: 6mm; }
+
+PURPOSE: One consolidated sheet showing ALL students in the class with
+         their marks for a selected term. Used for teacher records and
+         admin review. NOT given to parents.
+
+HEADER:
+  School name | Class | Term (Half Yearly / Final) | Session | Date printed
+
+TABLE STRUCTURE:
+  Columns (left to right):
+    Sl. No. | Roll No. | Student Name |
+    [Subject 1: IA | UT | Total] |
+    [Subject 2: IA | UT | Total] |
+    ... (one group per subject, only countInTotal subjects shown) |
+    Grand Total | Percentage | Rank | Result
+
+  Rows:
+    One row per student, sorted by Roll Number.
+    Last row: Class Average (average of each column across all students)
+
+  Styling:
+    - Compact font (0.7rem) to fit many columns on A3
+    - Header row: dark bg, gold/white text, rotated subject names if needed
+    - Alternating row colors: white / #F5F2EA
+    - FAIL cells (subject total < 40): light red tint
+    - PASS result: green text | FAIL result: red text
+    - Grand Total column: bold
+    - Rank column: bold, only shown for passing students
+
+PRINT CSS for marksheet.html:
+  @media print {
+    @page { size: A3 landscape; margin: 6mm; }
+    body { font-size: 0.65rem; }
+    .no-print { display: none !important; }
+  }

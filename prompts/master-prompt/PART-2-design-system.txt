@@ -1,0 +1,38 @@
+────────────────────────────────────────────────────────────────────────────────
+PART 2: COLOR THEME & VISUAL DESIGN
+────────────────────────────────────────────────────────────────────────────────
+
+COLOR PALETTE:
+  --primary-dark   : #2C2C2C   (header background, section title bars)
+  --primary-gold   : #C9A84C   (accents, borders, grade badges, column headers)
+  --bg-cream       : #FAF8F3   (main page background — warm cream white)
+  --bg-white       : #FFFFFF   (table cells, input fields, card surfaces)
+  --bg-section     : #F5F2EA   (alternating row tint, panel backgrounds)
+  --text-dark      : #1A1A1A   (primary text)
+  --text-muted     : #666666   (labels, secondary text)
+  --text-gold      : #A0822A   (highlighted totals, section headings)
+  --border-light   : #E0D9C8   (table borders, dividers)
+  --pass-green     : #2E7D32   (PASS badge text)
+  --fail-red       : #C62828   (FAIL badge text)
+  --grade-bg       : #3A3A2A   (grade pill background in tables)
+
+TYPOGRAPHY:
+  - Primary font  : 'Segoe UI', Arial, sans-serif
+  - Header font   : Georgia, serif (school name only)
+  - All sizes in rem for scalability
+  - Report card font sizes calibrated for legal paper print
+
+DESIGN RULES:
+  - Cream white (#FAF8F3) is the dominant background — no dark backgrounds
+    on the body of the report card itself
+  - Dark (#2C2C2C) is used ONLY for the school header bar and section
+    title strips (e.g., "TERM 1 — ACADEMIC PERFORMANCE")
+  - Gold (#C9A84C) for all accents: borders, badges, underlines, icons
+  - Tables have thin gold borders, cream/white alternating rows
+  - Grade pills are dark with gold/white text
+  - No harsh colors — the overall feel is premium, formal, school-official
+  - The CLASS badge (top right of header) uses dark background with gold text
+  - Section label strips (e.g., "STUDENT PROFILE") use dark bg + gold text
+    in small caps, left-aligned with a small gold triangle marker (▸)
+  - NO drop shadows. Use borders and background tints for depth instead.
+  - Passport photo box: dashed gold border, centered label "Affix Photo Here"

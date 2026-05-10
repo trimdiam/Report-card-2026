@@ -1,0 +1,770 @@
+================================================================================
+MASTER PROMPT — ST. FRANCIS DE SALES SCHOOL REPORT CARD SYSTEM
+For use with: Claude Code
+Project: Standalone Phase (Phase 1) — No backend required
+================================================================================
+
+You are building a complete, standalone, browser-based Report Card System
+for St. Francis De Sales School, Laitkor, Shillong, Meghalaya.
+This runs entirely in HTML, CSS, and Vanilla JavaScript — no framework,
+no backend, no database. Everything works in the browser.
+
+Read this entire prompt before writing a single line of code.
+
+────────────────────────────────────────────────────────────────────────────────
+PART 1: PROJECT STRUCTURE
+────────────────────────────────────────────────────────────────────────────────
+
+Create the following file structure:
+
+  sfds-reportcard/
+  ├── index.html              ← Main entry: class selector + mark entry form
+  ├── reportcard.html         ← Individual report card template (rendered + printed)
+  ├── marksheet.html          ← Class marksheet template (all students, printed)
+  ├── css/
+  │   ├── main.css            ← Form/UI styles
+  │   ├── reportcard.css      ← Report card layout styles (legal size print)
+  │   └── marksheet.css       ← Class marksheet layout styles (A3 print)
+  ├── js/
+  │   ├── config.js           ← Class configurations (subjects, schemes, totals)
+  │   ├── form.js             ← Mark entry form logic + calculations
+  │   ├── render.js           ← Renders data into report card template
+  │   ├── marksheet.js        ← Renders class marksheet
+  │   └── print.js            ← Print handlers for both document types
+  └── assets/
+      └── logo.png            ← School logo (placeholder if not available)
+
+────────────────────────────────────────────────────────────────────────────────
+PART 2: COLOR THEME & VISUAL DESIGN
+────────────────────────────────────────────────────────────────────────────────
+
+COLOR PALETTE:
+  --primary-dark   : #2C2C2C   (header background, section title bars)
+  --primary-gold   : #C9A84C   (accents, borders, grade badges, column headers)
+  --bg-cream       : #FAF8F3   (main page background — warm cream white)
+  --bg-white       : #FFFFFF   (table cells, input fields, card surfaces)
+  --bg-section     : #F5F2EA   (alternating row tint, panel backgrounds)
+  --text-dark      : #1A1A1A   (primary text)
+  --text-muted     : #666666   (labels, secondary text)
+  --text-gold      : #A0822A   (highlighted totals, section headings)
+  --border-light   : #E0D9C8   (table borders, dividers)
+  --pass-green     : #2E7D32   (PASS badge text)
+  --fail-red       : #C62828   (FAIL badge text)
+  --grade-bg       : #3A3A2A   (grade pill background in tables)
+
+TYPOGRAPHY:
+  - Primary font  : 'Segoe UI', Arial, sans-serif
+  - Header font   : Georgia, serif (school name only)
+  - All sizes in rem for scalability
+  - Report card font sizes calibrated for legal paper print
+
+DESIGN RULES:
+  - Cream white (#FAF8F3) is the dominant background — no dark backgrounds
+    on the body of the report card itself
+  - Dark (#2C2C2C) is used ONLY for the school header bar and section
+    title strips (e.g., "TERM 1 — ACADEMIC PERFORMANCE")
+  - Gold (#C9A84C) for all accents: borders, badges, underlines, icons
+  - Tables have thin gold borders, cream/white alternating rows
+  - Grade pills are dark with gold/white text
+  - No harsh colors — the overall feel is premium, formal, school-official
+  - The CLASS badge (top right of header) uses dark background with gold text
+  - Section label strips (e.g., "STUDENT PROFILE") use dark bg + gold text
+    in small caps, left-aligned with a small gold triangle marker (▸)
+  - NO drop shadows. Use borders and background tints for depth instead.
+  - Passport photo box: dashed gold border, centered label "Affix Photo Here"
+
+────────────────────────────────────────────────────────────────────────────────
+PART 3: CLASS CONFIGURATION (config.js)
+────────────────────────────────────────────────────────────────────────────────
+
+Build a CONFIG object in config.js. Each class entry defines:
+  - schoolName       : string (differs for upper classes)
+  - grandTotalMax    : number
+  - markScheme       : "standard" | "senior"
+      standard = IA(10) + UnitTest(30) + Exam(60) = 100
+      senior   = IA(20) + Exam(80) = 100  [Class IX & X only]
+  - subjects         : array of subject objects
+  - coScholastic     : array of activity subject names
+  - aggregates       : array of aggregate definitions
+
+Subject object shape:
+  {
+    key        : "mathematics",          // unique key
+    label      : "Mathematics",          // display name
+    isAggregate: false,                  // true = auto-sum, no input
+    components : [],                     // keys of subjects that feed this
+    countInTotal: true,                  // false = component rows excluded
+    singleTotal : false                  // true = Spelling-type, one input only
+  }
+
+Aggregate logic:
+  - Component subjects (e.g., Geography, Civics, History) have
+    countInTotal: false — they display but do NOT add to Grand Total
+  - The aggregate row (e.g., S.Science G+C+H) has countInTotal: true
+    and isAggregate: true — it IS added to Grand Total
+  - English I and English II similarly feed into English (I+II) aggregate
+
+CLASS CONFIGURATIONS:
+
+  CLASS III:
+    schoolName    : "St. Francis De Sales School"
+    grandTotalMax : 800
+    markScheme    : "standard"
+    subjects:
+      Mathematics, Science, Social Studies, Hindi,
+      Spelling (singleTotal: true),
+      English I, English II, Khasi/Alt. English
+    coScholastic:
+      P.E., Singing, Discipline, G.K., Arts & Craft,
+      Neatness, Val. Edu./Catechism
+
+  CLASS IV:
+    schoolName    : "St. Francis De Sales School"
+    grandTotalMax : 900
+    markScheme    : "standard"
+    subjects:
+      Mathematics, Science, Computer, Hindi,
+      Spelling (singleTotal: true),
+      English I, English II, Social Studies,
+      Khasi/Alt. English
+    coScholastic:
+      P.E., Singing, Discipline, G.K., Arts & Craft,
+      Neatness, Val. Edu./Catechism
+
+  CLASS V:
+    schoolName    : "St. Francis De Sales School"
+    grandTotalMax : 900
+    markScheme    : "standard"
+    note          : "Computer Practical included in Unit Test column"
+    subjects:
+      Mathematics, Science, Computer, Hindi,
+      Spelling (singleTotal: true),
+      English I, English II, Social Studies,
+      Khasi/Alt. English
+    coScholastic:
+      P.E., Singing, Discipline, G.K., Arts & Craft,
+      Neatness, Val. Edu./Catechism
+
+  CLASS VI:
+    schoolName    : "St. Francis De Sales School"
+    grandTotalMax : 800
+    markScheme    : "standard"
+    note          : "Computer Practical included in Unit Test column"
+    subjects:
+      Mathematics, Science, Computer, Hindi,
+      Geography      (countInTotal: false, feeds: S.Science),
+      Civics         (countInTotal: false, feeds: S.Science),
+      History        (countInTotal: false, feeds: S.Science),
+      S.Science(G+C+H) (isAggregate: true, countInTotal: true),
+      English I      (countInTotal: false, feeds: English I+II),
+      English II     (countInTotal: false, feeds: English I+II),
+      English (I+II) (isAggregate: true, countInTotal: true),
+      Health Education,
+      Khasi/Alt. English
+    coScholastic:
+      P.E., Singing, Discipline, G.K., Arts & Craft,
+      Neatness, Val. Edu./Catechism
+
+  CLASS VII:
+    schoolName    : "St. Francis De Sales School"
+    grandTotalMax : 700
+    markScheme    : "standard"
+    note          : "Computer Practical included in Unit Test column"
+    subjects:
+      Mathematics, Science, Computer,
+      Geography      (countInTotal: false, feeds: S.Science),
+      Civics         (countInTotal: false, feeds: S.Science),
+      History        (countInTotal: false, feeds: S.Science),
+      S.Science(G+C+H+E) (isAggregate: true, countInTotal: true),
+      English I      (countInTotal: false, feeds: English I+II),
+      English II     (countInTotal: false, feeds: English I+II),
+      English (I+II) (isAggregate: true, countInTotal: true),
+      H.Education,
+      Khasi/Alt. English
+    coScholastic:
+      P.E., Singing/Music, Discipline, G.K., Arts & Craft,
+      Val. Edu./Catechism
+    (NOTE: Neatness is removed from Class VII onwards)
+
+  CLASS VIII:
+    schoolName    : "St. Francis De Sales Sec. School"
+    grandTotalMax : 700
+    markScheme    : "standard"
+    note          : "Computer Practical included in Unit Test column"
+    subjects      : same as Class VII
+    coScholastic  : same as Class VII
+
+  CLASS IX:
+    schoolName    : "St. Francis De Sales School"
+    grandTotalMax : 600
+    markScheme    : "senior"   ← IA(20) + Exam(80) = 100, NO Unit Test
+    subjects:
+      Mathematics,
+      Physics        (countInTotal: false, feeds: Science),
+      Chemistry      (countInTotal: false, feeds: Science),
+      Biology        (countInTotal: false, feeds: Science),
+      Science(P+C+B) (isAggregate: true, countInTotal: true),
+      Geography      (countInTotal: false, feeds: S.Science),
+      Civics         (countInTotal: false, feeds: S.Science),
+      History        (countInTotal: false, feeds: S.Science),
+      Economics      (countInTotal: false, feeds: S.Science),
+      S.Science(G+C+H+E) (isAggregate: true, countInTotal: true),
+      English I      (countInTotal: false, feeds: English I+II),
+      English II     (countInTotal: false, feeds: English I+II),
+      English (I+II) (isAggregate: true, countInTotal: true),
+      H.Education,
+      Khasi/Alt. English
+    coScholastic:
+      Value Edu./Catechism, Handwriting, Singing, P.E.,
+      Discipline, SUPW
+
+  CLASS X:
+    Same as Class IX exactly.
+    schoolName : "St. Francis De Sales School"
+
+────────────────────────────────────────────────────────────────────────────────
+PART 4: MARK ENTRY FORM (index.html + form.js)
+────────────────────────────────────────────────────────────────────────────────
+
+The form is the data entry interface for teachers. It is NOT the report card.
+It is a clean, functional form that feeds data into the report card renderer.
+
+FORM SECTIONS:
+
+  SECTION A — CLASS & STUDENT INFO
+    - Class selector dropdown (III, IV, V, VI, VII, VIII, IX, X)
+      → On change: reload subject rows + mark scheme dynamically
+    - Student Name (text)
+    - Roll Number (number)
+    - Section (text, optional — e.g., "A")
+    - Class Teacher Name (text)
+    - Admission Number (text)
+    - Date of Birth (date)
+    - House (text — e.g., "Francis House")
+    - Session (pre-filled: "2026-2027", read-only)
+
+  SECTION B — HALF YEARLY MARKS TABLE
+    Rendered dynamically based on selected class.
+    Columns for standard scheme: Subject | IA(/10) | UT(/30) | Exam(/60) | Total
+    Columns for senior scheme:   Subject | IA(/20) | Exam(/80) | Total
+    - Each input enforces its max value on blur (show error if exceeded)
+    - Total auto-calculates on any input change (read-only)
+    - Aggregate rows auto-calculate (read-only, visually distinct)
+    - Grand Total row auto-calculates (read-only, bold)
+    - Percentage auto-calculates: (grandTotal / grandTotalMax) × 100
+    - Attendance row: two inputs → [Present] / [Total Working Days]
+
+  SECTION C — FINAL TERM MARKS TABLE
+    Same structure as Section B.
+    Consolidated column auto-calculates: HY Total + FT Total per subject
+
+  SECTION D — CO-SCHOLASTIC GRADES
+    For each co-scholastic subject (from class config):
+      - Subject label
+      - Half Yearly grade dropdown (A+, A, B+, B, C+, C, D)
+      - Final Term grade dropdown (A+, A, B+, B, C+, C, D)
+
+  SECTION E — REMARKS
+    - Half Yearly Remark: textarea (class teacher types freely)
+    - Final Term Remark: textarea (class teacher types freely, include
+      promotion status e.g. "Promoted to Class IV (Four)")
+
+  SECTION F — RANK
+    - Half Yearly Rank: number input (manual entry in Phase 1)
+    - Final Term Rank: number input (manual entry in Phase 1)
+    - Total students in class: number input (for display as "Rank / Total")
+    - Show a note: "Rank is eligible only if student passes all subjects
+      (40+ in each). Dense ranking — no rank skipped for ties."
+
+  SECTION G — RESULT
+    Auto-determined:
+    - If ALL countInTotal subjects score ≥ 40 in BOTH terms → PASS
+    - If ANY countInTotal subject scores < 40 in either term → FAIL
+    - Display auto-result, allow teacher to see it (read-only indicator)
+
+FORM ACTIONS (buttons at bottom):
+    [Preview Report Card]   → renders reportcard.html in a new tab/window
+    [Print Report Card]     → triggers print of the report card (legal size)
+    [Save to JSON]          → downloads current form data as .json file
+    [Load from JSON]        → loads previously saved .json to repopulate form
+    [Clear Form]            → resets all fields (with confirmation prompt)
+    [Add to Class List]     → saves current student to session memory
+                              for class marksheet generation
+    [View Class Marksheet]  → opens marksheet.html populated with all
+                              students added to session memory
+
+────────────────────────────────────────────────────────────────────────────────
+PART 5: INDIVIDUAL REPORT CARD LAYOUT (reportcard.html + reportcard.css)
+────────────────────────────────────────────────────────────────────────────────
+
+PAPER SIZE: Legal (8.5" × 14" / 216mm × 356mm), portrait
+CSS rule: @page { size: legal portrait; margin: 8mm; }
+
+The report card is a single HTML page that receives data via URL query
+parameters or sessionStorage from the form. It renders the full card
+and is print-ready.
+
+LAYOUT (top to bottom):
+
+  ── HEADER BAR (full width, dark background #2C2C2C) ──────────────────────
+  | [Logo 50px]  ST. FRANCIS DE SALES SCHOOL (Georgia, large, gold)        |
+  |              Laitkor, Shillong — Meghalaya (small, cream)               |
+  |              Affiliated to CBSE | Ph: 9612946550 | sfslaitkor@gmail.com |
+  |              ANNUAL REPORT CARD · ACADEMIC YEAR 2026–2027 (gold, caps) |
+  |                                              [CLASS X / Section A box]  |
+  ──────────────────────────────────────────────────────────────────────────
+
+  ── BODY (3-column grid) ──────────────────────────────────────────────────
+
+  LEFT PANEL (fixed ~220px wide, cream bg):
+
+    ▸ STUDENT PROFILE
+    ┌──────────────────────────┐
+    │   [Passport Photo Box]   │  ← dashed gold border, 80×100px
+    │   Affix Photo Here       │
+    └──────────────────────────┘
+    Student Name (bold, large)
+    Roll No. [XX] | Section [A] | Class [X]
+
+    Field rows (label: value):
+      Admission No.
+      Date of Birth
+      Academic Year
+      Class & Section
+      House
+
+    ▸ ATTENDANCE
+    Half Yearly:  [present] / [total] days  = XX%  [progress bar gold]
+    Final Term:   [present] / [total] days  = XX%  [progress bar gold]
+
+    ▸ OVERALL RESULT
+    ┌──────────────────────────┐
+    │ ACADEMIC RESULT  [PASS] │  ← gold border box
+    │ GRADE    %    CLASS RANK│
+    │  B+    68.8%   53 / 80  │
+    └──────────────────────────┘
+    (Values based on Final Term consolidated data)
+
+  CENTER PANEL — TERM 1 (HALF YEARLY):
+
+    ▸ TERM 1 — ACADEMIC PERFORMANCE  (dark strip, gold text)
+
+    Table columns:
+      Subject | IA /10 | UT /30 | TE /60 | Total /100 | Grade
+      (For senior: Subject | IA /20 | TE /80 | Total /100 | Grade)
+
+    Row rules:
+      - Component rows (Geography, Civics etc.): lighter tint, smaller font
+      - Aggregate rows (S.Science, English I+II): slightly bolder, tinted gold
+      - Alternating row colors: white / #F5F2EA
+      - Total column: underlined value (like the sample design)
+      - Grade column: dark pill badge with grade text
+
+    Term 1 Total row (bold):
+      "Term 1 Total" | Max: [grandTotalMax] | [grandTotal] | [grade]
+
+    ▸ CO-CURRICULAR & ACTIVITY GRADES  (dark strip)
+
+    Two-column grid of activity subjects with grade badges:
+      Physical Education  [B]    Music            [B]
+      Art & Craft         [A]    Life Skills       [A]
+      Discipline/Conduct  [B+]   ... etc.
+
+    ▸ CLASS TEACHER'S REMARKS  (dark strip)
+
+    TERM 1 OBSERVATION:
+    "[Half Yearly remark text — italic, quoted style]"
+
+    TERM 2 OBSERVATION:
+    "[Final Term remark text — italic, quoted style]"
+
+  RIGHT PANEL — TERM 2 (FINAL):
+
+    ▸ TERM 2 — ACADEMIC PERFORMANCE  (dark strip, gold text)
+
+    Table columns:
+      Subject | IA /10 | UT /30 | TE /60 | Total /100 | Consol. /200 | Grade
+      (Consol. = Term1 Total + Term2 Total per subject, auto-calculated)
+      (For senior: Subject | IA /20 | TE /80 | Total /100 | Consol. /200 | Grade)
+
+    Term 2 Total row (bold):
+      "Term 2 Total" | Max: [grandTotalMax] | [grandTotal] | [consolidated] | [grade]
+
+    ▸ CONSOLIDATED SUBJECT PERFORMANCE (T1 + T2 out of 200)  (dark strip)
+
+    Horizontal bar chart per subject:
+      Subject name | [████████████░░░] | consolidated score (e.g., 156)
+      Bar color: gold (#C9A84C), track color: #E0D9C8
+      Bar width proportional to score out of 200
+      Only countInTotal subjects shown here
+
+    ▸ CONSOLIDATED SUMMARY  (dark strip)
+
+    2×3 grid of stat boxes (cream bg, gold border):
+      TOTAL MARKS        PERCENTAGE        OVERALL GRADE
+      [1376]             [68.8%]           [B+]
+      out of [2000]
+
+      CLASS RANK         RESULT            ATTENDANCE
+      [53]               [PASS]            [65%]
+      of [80] students   (green/red)       [present/total days]
+
+    ▸ PRINCIPAL'S / ANNUAL REMARK  (below summary, cream box, gold border)
+    "[Final Term remark text repeated here as the headmistress remark]"
+    OR a separate Headmistress remark field if different from teacher remark.
+
+  ── FOOTER (full width) ───────────────────────────────────────────────────
+  Signature line:
+    Class Teacher ____________  Parent / Guardian ____________  Principal ____________
+  Date of Issue: ___ / ___ / ____
+
+  Grading scale bar (small, bottom):
+    O ≥90% | A+ 80–89% | A 70–79% | B+ 60–69% | B 50–59% | C 40–49% |
+    D 33–39% | F <33% – Fail | Pass mark: 40/100
+
+  Bottom strip (dark, small text):
+    St. Francis De Sales School · Laitkor, Shillong, Meghalaya
+    [center] Computer-generated document | No signature required for validity
+    [right] Academic Year 2026–27 | Affiliated to CBSE
+  ──────────────────────────────────────────────────────────────────────────
+
+PRINT CSS RULES for reportcard.html:
+  @media print {
+    body { margin: 0; background: white; }
+    .no-print { display: none !important; }
+    @page { size: legal portrait; margin: 8mm; }
+    .report-card { page-break-after: always; }
+  }
+
+────────────────────────────────────────────────────────────────────────────────
+PART 6: CLASS MARKSHEET (marksheet.html + marksheet.css)
+────────────────────────────────────────────────────────────────────────────────
+
+PAPER SIZE: A3 landscape (420mm × 297mm)
+CSS rule: @page { size: A3 landscape; margin: 6mm; }
+
+PURPOSE: One consolidated sheet showing ALL students in the class with
+         their marks for a selected term. Used for teacher records and
+         admin review. NOT given to parents.
+
+HEADER:
+  School name | Class | Term (Half Yearly / Final) | Session | Date printed
+
+TABLE STRUCTURE:
+  Columns (left to right):
+    Sl. No. | Roll No. | Student Name |
+    [Subject 1: IA | UT | Total] |
+    [Subject 2: IA | UT | Total] |
+    ... (one group per subject, only countInTotal subjects shown) |
+    Grand Total | Percentage | Rank | Result
+
+  Rows:
+    One row per student, sorted by Roll Number.
+    Last row: Class Average (average of each column across all students)
+
+  Styling:
+    - Compact font (0.7rem) to fit many columns on A3
+    - Header row: dark bg, gold/white text, rotated subject names if needed
+    - Alternating row colors: white / #F5F2EA
+    - FAIL cells (subject total < 40): light red tint
+    - PASS result: green text | FAIL result: red text
+    - Grand Total column: bold
+    - Rank column: bold, only shown for passing students
+
+PRINT CSS for marksheet.html:
+  @media print {
+    @page { size: A3 landscape; margin: 6mm; }
+    body { font-size: 0.65rem; }
+    .no-print { display: none !important; }
+  }
+
+────────────────────────────────────────────────────────────────────────────────
+PART 7: CALCULATION LOGIC (form.js)
+────────────────────────────────────────────────────────────────────────────────
+
+SUBJECT TOTAL:
+  Standard: IA + UnitTest + Exam (capped at 100)
+  Senior:   IA + Exam (capped at 100)
+  Single:   Direct total input (e.g., Spelling)
+
+AGGREGATE TOTAL:
+  Auto-sum of component subject totals (read-only field)
+
+GRAND TOTAL:
+  Sum of all subject totals where countInTotal === true
+
+PERCENTAGE:
+  (grandTotal / grandTotalMax) × 100, rounded to 2 decimal places
+
+GRADE (from percentage):
+  ≥ 90  → O  (Outstanding)      [Only use if school wants O grade]
+  80–89 → A+
+  70–79 → A
+  60–69 → B+
+  50–59 → B
+  40–49 → C
+  33–39 → D
+  < 33  → F (Fail)
+  Pass mark: 40/100
+
+  NOTE: Use the grading scale confirmed by the school. The sample design
+  shows O/A+/A/B+/B/C/D/F. Implement exactly this scale.
+
+CONSOLIDATED (per subject):
+  Term1 subject total + Term2 subject total = Consol. (out of 200)
+
+OVERALL CONSOLIDATED TOTAL:
+  Term1 Grand Total + Term2 Grand Total (out of grandTotalMax × 2)
+
+RESULT:
+  Check ALL countInTotal subjects in BOTH terms.
+  If ANY subject total < 40 → FAIL
+  If ALL subject totals ≥ 40 → PASS
+
+RANK ELIGIBILITY:
+  Student must PASS (all subjects ≥ 40) to receive a rank.
+  Rank is manually entered in Phase 1.
+
+ATTENDANCE PERCENTAGE:
+  (daysPresent / totalWorkingDays) × 100
+
+INPUT VALIDATION:
+  - IA: 0 to max (10 or 20)
+  - Unit Test: 0 to 30
+  - Exam: 0 to max (60 or 80)
+  - Show inline red error if value exceeds max or is negative
+  - Do not allow form preview if required fields are empty
+
+────────────────────────────────────────────────────────────────────────────────
+PART 8: DATA FLOW
+────────────────────────────────────────────────────────────────────────────────
+
+1. Teacher fills the form on index.html
+2. On "Preview Report Card" click:
+   a. Collect all form data into a JS object (studentData)
+   b. Store in sessionStorage as JSON string
+   c. Open reportcard.html in new tab
+   d. reportcard.html reads sessionStorage, renders the full card
+3. On "Print Report Card" click:
+   a. Same as above but immediately calls window.print() after render
+4. On "Save to JSON" click:
+   a. Download studentData as [StudentName]_[Class]_[Session].json
+5. On "Load from JSON" click:
+   a. File picker opens
+   b. Loaded JSON repopulates the form
+6. On "Add to Class List" click:
+   a. Push studentData into a classListArray in sessionStorage
+   b. Show confirmation: "Student [Name] added. Total: [N] students."
+7. On "View Class Marksheet" click:
+   a. Open marksheet.html
+   b. marksheet.html reads classListArray from sessionStorage
+   c. Renders the consolidated table for all added students
+   d. Sorts by Roll Number
+
+studentData object shape:
+  {
+    schoolName    : string,
+    session       : string,
+    class         : string,
+    section       : string,
+    classTeacher  : string,
+    student: {
+      name          : string,
+      rollNo        : number,
+      admissionNo   : string,
+      dob           : string,
+      house         : string
+    },
+    halfYearly: {
+      subjects      : { [key]: { ia, ut, exam, total } },
+      grandTotal    : number,
+      percentage    : number,
+      grade         : string,
+      rank          : number,
+      totalStudents : number,
+      attendance    : { present: number, total: number }
+    },
+    finalTerm: {
+      subjects      : { [key]: { ia, ut, exam, total } },
+      grandTotal    : number,
+      percentage    : number,
+      grade         : string,
+      rank          : number,
+      totalStudents : number,
+      attendance    : { present: number, total: number }
+    },
+    consolidated: {
+      subjects      : { [key]: { term1, term2, total } },
+      grandTotal    : number,
+      percentage    : number,
+      grade         : string,
+      result        : "PASS" | "FAIL"
+    },
+    coScholastic: {
+      [subjectKey]  : { halfYearly: string, finalTerm: string }
+    },
+    remarks: {
+      halfYearly    : string,
+      finalTerm     : string
+    }
+  }
+
+────────────────────────────────────────────────────────────────────────────────
+PART 9: IMPORTANT IMPLEMENTATION NOTES
+────────────────────────────────────────────────────────────────────────────────
+
+1. DO NOT use any external CSS framework (no Bootstrap, no Tailwind).
+   Write all CSS from scratch using the color palette defined in Part 2.
+
+2. DO NOT use any JavaScript framework (no React, no Vue).
+   Pure Vanilla JS only.
+
+3. The report card HTML template in reportcard.html must look
+   IDENTICAL on screen and when printed. Test both views.
+
+4. Aggregate rows in the marks table must be visually distinct:
+   slightly bolder font, a subtle gold-tinted background row,
+   and "(auto)" or a formula indicator hidden from print.
+
+5. The bar chart in the Consolidated Subject Performance section
+   must be built using pure CSS (div with width % set by JS).
+   Do NOT use any chart library.
+
+6. Component subject rows (Geography, Civics, History etc.) that
+   do NOT count toward Grand Total must be visually de-emphasized:
+   smaller font, lighter text, slight indent on the subject name.
+
+7. All MAX values must be displayed in column headers:
+   e.g., "IA /10" not just "IA" — this matches the physical card format.
+
+8. The Consolidated column in Term 2 table shows "/200" in the header
+   (Term1 Total + Term2 Total per subject, max 200).
+
+9. The overall consolidated grand total is out of (grandTotalMax × 2).
+   E.g., Class X: 600 × 2 = 1200. Class III: 800 × 2 = 1600.
+
+10. For Spelling (singleTotal subjects): show only one input column
+    spanning IA+UT+Exam columns, labeled "Total" directly.
+    No breakdown shown for these subjects.
+
+11. When class changes in the form, ALL subject rows, calculations,
+    and column headers must re-render dynamically. Do not reload the page.
+    Use JS DOM manipulation to rebuild the table.
+
+12. Session is pre-filled as "2026-2027" and is read-only in the form.
+
+13. School name must auto-switch based on class:
+    Classes III–VII, IX, X → "St. Francis De Sales School"
+    Class VIII              → "St. Francis De Sales Sec. School"
+
+14. Date of Issue field in the report card footer is blank (printed,
+    filled by hand) — render as: "Date of Issue: ___ / ___ / ____"
+
+15. Ensure the report card fits on ONE legal page. If content overflows,
+    reduce font sizes proportionally. Test with Class IX (most subjects).
+
+16. The grading scale at the very bottom of the printed page must
+    always be visible and must not be cut off by the page margin.
+
+17. Add a small "Computer-generated document | Verify with school records"
+    note in the footer — matches the sample design.
+
+18. No external images except the school logo. If logo file is missing,
+    show a circular placeholder with "SFS" text in gold on dark bg.
+
+19. The CLASS badge (top right of header) shows:
+    "CLASS [X]" on line 1
+    "Section [A]" on line 2
+    "2026 – 27" on line 3
+    Dark background, gold text, fixed width box.
+
+20. All currency/number formatting: plain integers for marks, one decimal
+    for percentages (e.g., 68.8% not 68.80%).
+
+────────────────────────────────────────────────────────────────────────────────
+PART 10: BUILD ORDER (follow this sequence strictly)
+────────────────────────────────────────────────────────────────────────────────
+
+  Step 1   Create config.js — all class configurations
+           Test: console.log each class config, verify subject counts
+           and grandTotalMax values match requirements.
+
+  Step 2   Create index.html skeleton — header, form sections A–G,
+           action buttons. No logic yet, just structure and CSS.
+
+  Step 3   Create main.css — form styling, color theme, layout.
+
+  Step 4   Create form.js — class selector listener, dynamic subject
+           table rendering based on config, input event listeners,
+           auto-calculation of totals/percentage/grade/result.
+
+  Step 5   Test form.js thoroughly:
+           - Switch between all 8 classes, verify correct subject rows
+           - Enter marks, verify auto-totals are correct
+           - Verify aggregate rows calculate properly
+           - Verify max enforcement works
+
+  Step 6   Create reportcard.html skeleton — full layout structure
+           with placeholder data hard-coded for visual testing.
+
+  Step 7   Create reportcard.css — all print and screen styles.
+           Test @page legal print layout in Chrome print preview.
+
+  Step 8   Create render.js — reads sessionStorage, populates all
+           fields in reportcard.html dynamically.
+
+  Step 9   Connect index.html Preview button → sessionStorage →
+           reportcard.html. Test full data flow end to end.
+
+  Step 10  Build CSS bar chart in consolidated section of reportcard.html.
+
+  Step 11  Create marksheet.html and marksheet.css.
+
+  Step 12  Create marksheet.js — reads classListArray from sessionStorage,
+           renders student rows, calculates class averages.
+
+  Step 13  Test print for both documents:
+           - reportcard.html → legal portrait
+           - marksheet.html → A3 landscape
+
+  Step 14  Add Save/Load JSON functionality.
+
+  Step 15  Final review: check all 8 class types render correctly,
+           check print output for Class III (fewest subjects) and
+           Class IX (most subjects) as boundary test cases.
+
+────────────────────────────────────────────────────────────────────────────────
+PART 11: DELIVERABLES CHECKLIST
+────────────────────────────────────────────────────────────────────────────────
+
+  [ ] config.js — all 8 classes fully configured
+  [ ] index.html — complete mark entry form, all sections
+  [ ] main.css — form UI styled with cream/gold/dark theme
+  [ ] form.js — dynamic form, full calculation logic, validation
+  [ ] reportcard.html — full report card layout, both terms, all sections
+  [ ] reportcard.css — screen + print styles, legal page size
+  [ ] render.js — populates report card from sessionStorage data
+  [ ] marksheet.html — class consolidated sheet layout
+  [ ] marksheet.css — A3 landscape print styles
+  [ ] marksheet.js — renders all students from classListArray
+  [ ] print.js — print trigger functions for both document types
+  [ ] Save/Load JSON working
+  [ ] All 8 class types tested
+  [ ] Print preview verified for legal (report card) and A3 (marksheet)
+  [ ] No console errors on any page
+  [ ] No broken layouts on screen or print
+
+────────────────────────────────────────────────────────────────────────────────
+END OF MASTER PROMPT
+────────────────────────────────────────────────────────────────────────────────
+
+ADDITIONAL CONTEXT FOR CLAUDE CODE:
+  This system will later be integrated into PROJECT LEO, a Firebase-based
+  school portal (project ID: st-francis-school-a3e7e). The standalone
+  version built from this prompt is Phase 1. Build clean, modular code
+  so that in Phase 2, the form.js data flow can be redirected to
+  Firestore instead of sessionStorage with minimal changes.
+  Keep all configuration in config.js separate from logic in form.js.
+  This separation is critical for the Firebase integration phase.
+
+================================================================================

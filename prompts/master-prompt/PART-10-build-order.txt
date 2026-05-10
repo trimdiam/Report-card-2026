@@ -1,0 +1,51 @@
+────────────────────────────────────────────────────────────────────────────────
+PART 10: BUILD ORDER (follow this sequence strictly)
+────────────────────────────────────────────────────────────────────────────────
+
+  Step 1   Create config.js — all class configurations
+           Test: console.log each class config, verify subject counts
+           and grandTotalMax values match requirements.
+
+  Step 2   Create index.html skeleton — header, form sections A–G,
+           action buttons. No logic yet, just structure and CSS.
+
+  Step 3   Create main.css — form styling, color theme, layout.
+
+  Step 4   Create form.js — class selector listener, dynamic subject
+           table rendering based on config, input event listeners,
+           auto-calculation of totals/percentage/grade/result.
+
+  Step 5   Test form.js thoroughly:
+           - Switch between all 8 classes, verify correct subject rows
+           - Enter marks, verify auto-totals are correct
+           - Verify aggregate rows calculate properly
+           - Verify max enforcement works
+
+  Step 6   Create reportcard.html skeleton — full layout structure
+           with placeholder data hard-coded for visual testing.
+
+  Step 7   Create reportcard.css — all print and screen styles.
+           Test @page legal print layout in Chrome print preview.
+
+  Step 8   Create render.js — reads sessionStorage, populates all
+           fields in reportcard.html dynamically.
+
+  Step 9   Connect index.html Preview button → sessionStorage →
+           reportcard.html. Test full data flow end to end.
+
+  Step 10  Build CSS bar chart in consolidated section of reportcard.html.
+
+  Step 11  Create marksheet.html and marksheet.css.
+
+  Step 12  Create marksheet.js — reads classListArray from sessionStorage,
+           renders student rows, calculates class averages.
+
+  Step 13  Test print for both documents:
+           - reportcard.html → legal portrait
+           - marksheet.html → A3 landscape
+
+  Step 14  Add Save/Load JSON functionality.
+
+  Step 15  Final review: check all 8 class types render correctly,
+           check print output for Class III (fewest subjects) and
+           Class IX (most subjects) as boundary test cases.

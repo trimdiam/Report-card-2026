@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Class Marksheet — SFDS</title>
+    <link rel="stylesheet" href="css/marksheet.css">
+</head>
+<body>
+    <div class="marksheet-page" id="marksheetPage">
+
+        <!-- ═══════════════════════════════════════════════════════════════════
+             HEADER
+             ═══════════════════════════════════════════════════════════════════ -->
+        <header class="ms-header">
+            <div class="ms-header-inner">
+                <img src="assets/logo.png" alt="Logo" class="ms-logo" id="msLogo">
+                <div class="ms-header-text">
+                    <h1 id="msSchoolName">St. Francis De Sales School</h1>
+                    <p class="ms-meta">Laitkor, Shillong — Meghalaya | Affiliated to CBSE</p>
+                </div>
+                <div class="ms-header-info">
+                    <div><strong>Class:</strong> <span id="msClass">—</span></div>
+                    <div><strong>Term:</strong> <span id="msTerm">—</span></div>
+                    <div><strong>Session:</strong> <span id="msSession">2026–2027</span></div>
+                    <div><strong>Date:</strong> <span id="msDate">—</span></div>
+                </div>
+            </div>
+        </header>
+
+        <!-- ═══════════════════════════════════════════════════════════════════
+             TABLE
+             ═══════════════════════════════════════════════════════════════════ -->
+        <div class="ms-table-wrap">
+            <table class="ms-table" id="msTable">
+                <thead id="msTableHead">
+                    <!-- Dynamic header -->
+                </thead>
+                <tbody id="msTableBody">
+                    <!-- Dynamic rows -->
+                </tbody>
+                <tfoot id="msTableFoot">
+                    <!-- Class average row -->
+                </tfoot>
+            </table>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════════
+             FOOTER
+             ═══════════════════════════════════════════════════════════════════ -->
+        <footer class="ms-footer">
+            <div class="ms-footer-line">
+                <span>Class Teacher: ____________________</span>
+                <span>Principal: ____________________</span>
+                <span>Date: ___/___/______</span>
+            </div>
+            <div class="ms-footer-note">Computer-generated document | Verify with school records</div>
+        </footer>
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/marksheet.js"></script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+{
+  "todo": [
+    {
+      "assignedTo": {
+        "name": "ANANDO POHTAM"
+      },
+      "creation_time": "2026-05-10T09:55:31.548Z",
+      "description": {
+        "content": "Build all class configurations exactly as defined in PART 3 of the master prompt.\n\nRequirements:\n- Classes III to X\n- Correct grandTotalMax\n- standard/senior schemes\n- aggregate subject logic\n- coScholastic arrays\n- countInTotal handling\n- singleTotal handling\n- modular structure\n\nOutput:\njs/config.js\n\nDo not implement future steps.",
+        "mime": "text/markdown"
+      },
+      "id": "1",
+      "references": [],
+      "title": "Step 1 — Create config.js"
+    },
+    {
+      "assignedTo": {
+        "name": "ANANDO POHTAM"
+      },
+      "creation_time": "2026-05-10T09:59:51.117Z",
+      "description": {
+        "content": "Build the complete form structure from PART 4.\n\nInclude:\n- Sections A–G\n- Action buttons\n- Form containers\n- Table placeholders\n\nNo logic yet.\nStructure only.",
+        "mime": "text/markdown"
+      },
+      "id": "2",
+      "references": [],
+      "title": "Step 2 — Create index.html skeleton"
+    },
+    {
+      "assignedTo": {
+        "name": "ANANDO POHTAM"
+      },
+      "creation_time": "2026-05-10T10:00:24.609Z",
+      "description": {
+        "content": "Implement the cream/gold/dark design system from PART 2.\n\nRequirements:\n- typography\n- layout\n- forms\n- section styling\n- table styling\n- no frameworks\n- print-friendly structure",
+        "mime": "text/markdown"
+      },
+      "id": "3",
+      "references": [],
+      "title": "Step 3 — Create main.css"
+    },
+    {
+      "assignedTo": {
+        "name": "ANANDO POHTAM"
+      },
+      "creation_time": "2026-05-10T10:00:52.867Z",
+      "description": {
+        "content": "Implement:\n- dynamic class switching\n- subject rendering\n- calculations\n- aggregate logic\n- totals\n- percentage\n- result logic\n- validation\n\nFollow PART 4 and PART 7 strictly.",
+        "mime": "text/markdown"
+      },
+      "id": "4",
+      "references": [],
+      "title": "Step 4 — Build form.js"
+    },
+    {
+      "assignedTo": {
+        "name": "ANANDO POHTAM"
+      },
+      "creation_time": "2026-05-10T10:01:31.942Z",
+      "description": {
+        "content": "Test all class configurations.\n\nVerify:\n- subject rendering\n- aggregate calculations\n- totals\n- percentage\n- pass/fail logic\n- validation rules\n\nNo UI redesign.",
+        "mime": "text/markdown"
+      },
+      "id": "5",
+      "references": [],
+      "title": "Step 5 — Test form.js"
+    }
+  ],
+  "in-progress": [],
+  "testing": [],
+  "done": []
+}

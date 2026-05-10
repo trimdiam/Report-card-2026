@@ -1,0 +1,56 @@
+────────────────────────────────────────────────────────────────────────────────
+PART 7: CALCULATION LOGIC (form.js)
+────────────────────────────────────────────────────────────────────────────────
+
+SUBJECT TOTAL:
+  Standard: IA + UnitTest + Exam (capped at 100)
+  Senior:   IA + Exam (capped at 100)
+  Single:   Direct total input (e.g., Spelling)
+
+AGGREGATE TOTAL:
+  Auto-sum of component subject totals (read-only field)
+
+GRAND TOTAL:
+  Sum of all subject totals where countInTotal === true
+
+PERCENTAGE:
+  (grandTotal / grandTotalMax) × 100, rounded to 2 decimal places
+
+GRADE (from percentage):
+  ≥ 90  → O  (Outstanding)      [Only use if school wants O grade]
+  80–89 → A+
+  70–79 → A
+  60–69 → B+
+  50–59 → B
+  40–49 → C
+  33–39 → D
+  < 33  → F (Fail)
+  Pass mark: 40/100
+
+  NOTE: Use the grading scale confirmed by the school. The sample design
+  shows O/A+/A/B+/B/C/D/F. Implement exactly this scale.
+
+CONSOLIDATED (per subject):
+  Term1 subject total + Term2 subject total = Consol. (out of 200)
+
+OVERALL CONSOLIDATED TOTAL:
+  Term1 Grand Total + Term2 Grand Total (out of grandTotalMax × 2)
+
+RESULT:
+  Check ALL countInTotal subjects in BOTH terms.
+  If ANY subject total < 40 → FAIL
+  If ALL subject totals ≥ 40 → PASS
+
+RANK ELIGIBILITY:
+  Student must PASS (all subjects ≥ 40) to receive a rank.
+  Rank is manually entered in Phase 1.
+
+ATTENDANCE PERCENTAGE:
+  (daysPresent / totalWorkingDays) × 100
+
+INPUT VALIDATION:
+  - IA: 0 to max (10 or 20)
+  - Unit Test: 0 to 30
+  - Exam: 0 to max (60 or 80)
+  - Show inline red error if value exceeds max or is negative
+  - Do not allow form preview if required fields are empty
