@@ -142,8 +142,19 @@ async function loadTeacherAndRoute(uid) {
         const userData = userSnap.data();
         const tid = userData.teacherId || userData.loginId || '';
         if (tid) {
-          const tSnap = await db.collection('teachers')
+          // Try exact match on teacherId field
+          let tSnap = await db.collection('teachers')
             .where('teacherId', '==', tid).limit(1).get();
+          // Try case-insensitive variant (uppercase)
+          if (tSnap.empty) {
+            tSnap = await db.collection('teachers')
+              .where('teacherId', '==', tid.toUpperCase()).limit(1).get();
+          }
+          // Try loginId field mirror (set by createTeacherLogin)
+          if (tSnap.empty) {
+            tSnap = await db.collection('teachers')
+              .where('loginId', '==', tid).limit(1).get();
+          }
           if (!tSnap.empty) teacherData = tSnap.docs[0].data();
         }
       }
