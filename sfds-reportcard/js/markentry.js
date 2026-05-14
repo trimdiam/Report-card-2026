@@ -6,6 +6,14 @@
 
 'use strict';
 
+// ─── ROMAN NUMERAL → INTEGER ─────────────────────────────────────────────────
+const ROMAN_TO_INT = { I:1,II:2,III:3,IV:4,V:5,VI:6,VII:7,VIII:8,IX:9,X:10 };
+function classNumFromId(classId) {
+  // "IX-A" → 9, "3-A" → 3, "III" → 3
+  const raw = String(classId).split('-')[0].trim().toUpperCase();
+  return ROMAN_TO_INT[raw] || parseInt(raw) || null;
+}
+
 // ─── STATE ────────────────────────────────────────────────────────────────────
 const ME = {
   user:         null,
@@ -162,8 +170,34 @@ async function loadTeacherAndRoute(uid) {
       } else if (ME.teacher.classTeacher) {
         ME.ctClassId = ME.teacher.classTeacher + '-A';     // "III" → "III-A"
       }
-      ME.ctClassNum = ME.ctClassId ? parseInt(ME.ctClassId.split('-')[0]) : null;
+      ME.ctClassNum = ME.ctClassId ? classNumFromId(ME.ctClassId) : null;
     }
+
+    // ─── PHASE 3: URL param deep-linking ───────────────────────────────────
+    const params      = new URLSearchParams(window.location.search);
+    const urlClassId  = params.get('classId');
+    const urlSubject  = params.get('subject');
+    const urlTerm     = params.get('term') || 'HY';
+    const urlAction   = params.get('action');
+
+    if (urlClassId && urlSubject) {
+      // Deep-link: go directly to mark entry grid
+      const classNumInt = classNumFromId(urlClassId);
+      const section     = urlClassId.split('-')[1] || 'A';
+      const subjectCfg  = CONFIG[classNumInt]?.subjects.find(s => s.key === urlSubject);
+      const subjectLbl  = subjectCfg?.label || urlSubject;
+      await openGrid(urlClassId, classNumInt, section, subjectLbl, urlSubject, urlTerm);
+      return;
+    }
+
+    if (urlClassId && urlAction === 'review' && ME.isClassTeacher) {
+      // Deep-link: go directly to class teacher student list
+      ME.ctClassId  = urlClassId;
+      ME.ctClassNum = classNumFromId(urlClassId);
+      await openStudentList(urlTerm);
+      return;
+    }
+    // ────────────────────────────────────────────────────────────────────────
 
     if (ME.isClassTeacher) {
       await renderCTDashboard();
@@ -191,10 +225,88 @@ async function renderSubjectDashboard() {
     return;
   }
 
+  // Phase 3 format has classId directly; legacy format uses asgn.class + asgn.section
+  const isNewFormat = assignments[0].classId !== undefined;
+
+  if (isNewFormat) {
+    await renderSubjectDashboardNew(assignments);
+  } else {
+    await renderSubjectDashboardLegacy(assignments);
+  }
+}
+
+// Phase 3 format: { subjectKey, subjectLabel, classId, classNum, section, term }
+async function renderSubjectDashboardNew(assignments) {
+  // Fetch statuses per termKey
+  const statusMap = {};
+  const termSets = new Set(assignments.map(a => `${a.classId}_${a.term}`));
+  for (const termKey of termSets) {
+    try {
+      const snap = await db.collection('marks').doc(termKey).collection('students').limit(200).get();
+      snap.forEach(doc => {
+        const data = doc.data();
+        const submitted = data.submittedSubjects || {};
+        assignments.filter(a => `${a.classId}_${a.term}` === termKey).forEach(a => {
+          const mapKey = `${termKey}__${a.subjectKey}`;
+          if (data.status === 'locked')
+            statusMap[mapKey] = 'locked';
+          else if (submitted[a.subjectKey]?.status === 'submitted')
+            statusMap[mapKey] = statusMap[mapKey] === 'locked' ? 'locked' : 'submitted';
+          else if (data.status === 'draft')
+            statusMap[mapKey] = statusMap[mapKey] || 'draft';
+        });
+      });
+    } catch (_) {}
+  }
+
+  const tbody = $('dashboardBody');
+  tbody.innerHTML = '';
+
+  // Update header for new layout (Class | Subject | Term | Status | Action)
+  const thead = tbody.closest('table').querySelector('thead tr');
+  if (thead) thead.innerHTML = '<th>Class</th><th>Subject</th><th>Term</th><th>Status</th><th>Action</th>';
+
+  for (const asgn of assignments) {
+    const { subjectKey, subjectLabel, classId, classNum, section, term } = asgn;
+    const classNumParsed = classNum || parseInt(classId.split('-')[0]);
+    const sec = section || classId.split('-')[1] || 'A';
+    const mapKey = `${classId}_${term}__${subjectKey}`;
+    const status = statusMap[mapKey] || 'not-started';
+
+    const tr = el('tr');
+    tr.innerHTML = `
+      <td>${classId}</td>
+      <td>${escHtml(subjectLabel)}</td>
+      <td>${term === 'HY' ? 'Half Yearly' : 'Final Term'}</td>
+      <td>${statusBadge(status)}</td>
+      <td>${status !== 'locked'
+        ? `<button class="btn btn-sm btn-secondary me-enter-btn"
+             data-classid="${classId}" data-classnum="${classNumParsed}"
+             data-section="${sec}" data-subject="${escHtml(subjectLabel)}"
+             data-subjectkey="${subjectKey}" data-term="${term}">
+             Enter Marks &rarr;
+           </button>`
+        : '<span style="color:var(--me-muted);font-size:0.82rem;">&#128274; Locked</span>'
+      }</td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  tbody.querySelectorAll('.me-enter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      openGrid(btn.dataset.classid, btn.dataset.classnum, btn.dataset.section,
+               btn.dataset.subject, btn.dataset.subjectkey, btn.dataset.term);
+    });
+  });
+}
+
+// Legacy format: { class, section, subject } — also handles mixed (subjectLabel/subjectKey present)
+async function renderSubjectDashboardLegacy(assignments) {
   const rows = [];
   for (const asgn of assignments) {
-    const classId = `${asgn.class}-${asgn.section}`;
-    for (const term of ['HY', 'FT']) rows.push({ ...asgn, classId, term });
+    const classId    = asgn.classId || `${asgn.class}-${asgn.section}`;
+    const subjectRef = asgn.subjectKey || asgn.subject || asgn.subjectLabel || '';
+    for (const term of ['HY', 'FT']) rows.push({ ...asgn, classId, term, _subjectRef: subjectRef });
   }
 
   const statusMap = await fetchAssignmentStatuses(rows);
@@ -203,21 +315,26 @@ async function renderSubjectDashboard() {
 
   const seen = new Set();
   for (const asgn of assignments) {
-    const classId = `${asgn.class}-${asgn.section}`;
-    const key = `${classId}__${asgn.subject}`;
+    const classId      = asgn.classId || `${asgn.class}-${asgn.section}`;
+    const classNum     = asgn.classNum || asgn.class;
+    const section      = asgn.section || classId.split('-')[1] || 'A';
+    const subjectName  = asgn.subject || asgn.subjectLabel || '—';
+    const subjectKey   = asgn.subjectKey || subjectToKey(subjectName, classNum);
+
+    const key = `${classId}__${subjectKey || subjectName}`;
     if (seen.has(key)) continue;
     seen.add(key);
 
-    const hyStatus = statusMap[`${classId}_HY__${asgn.subject}`] || 'not-started';
-    const ftStatus = statusMap[`${classId}_FT__${asgn.subject}`] || 'not-started';
+    const hyStatus = statusMap[`${classId}_HY__${subjectKey || subjectName}`] || 'not-started';
+    const ftStatus = statusMap[`${classId}_FT__${subjectKey || subjectName}`] || 'not-started';
 
     const tr = el('tr');
     tr.innerHTML = `
-      <td>${asgn.class}</td>
-      <td>${asgn.section}</td>
-      <td>${escHtml(asgn.subject)}</td>
-      <td>${statusBadge(hyStatus)} ${actionBtn(classId, asgn.class, asgn.section, asgn.subject, 'HY', hyStatus)}</td>
-      <td>${statusBadge(ftStatus)} ${actionBtn(classId, asgn.class, asgn.section, asgn.subject, 'FT', ftStatus)}</td>
+      <td>${classNum}</td>
+      <td>${section}</td>
+      <td>${escHtml(subjectName)}</td>
+      <td>${statusBadge(hyStatus)} ${actionBtn(classId, classNum, section, subjectName, subjectKey, 'HY', hyStatus)}</td>
+      <td>${statusBadge(ftStatus)} ${actionBtn(classId, classNum, section, subjectName, subjectKey, 'FT', ftStatus)}</td>
     `;
     tbody.appendChild(tr);
   }
@@ -241,10 +358,11 @@ async function fetchAssignmentStatuses(rows) {
         const data = doc.data();
         const submitted = data.submittedSubjects || {};
         rows.filter(r => `${r.classId}_${r.term}` === termKey).forEach(r => {
-          const mapKey = `${termKey}__${r.subject}`;
+          const subRef = r._subjectRef || r.subjectKey || r.subject || '';
+          const mapKey = `${termKey}__${subRef}`;
           if (data.status === 'locked')
             statusMap[mapKey] = 'locked';
-          else if (submitted[r.subject]?.status === 'submitted')
+          else if (submitted[subRef]?.status === 'submitted')
             statusMap[mapKey] = statusMap[mapKey] === 'locked' ? 'locked' : 'submitted';
           else if (data.status === 'draft')
             statusMap[mapKey] = statusMap[mapKey] || 'draft';
@@ -266,20 +384,22 @@ function statusBadge(status) {
   return `<span class="status-badge ${cls}">${label}</span>`;
 }
 
-function actionBtn(classId, classNum, section, subject, term, status) {
+function actionBtn(classId, classNum, section, subject, subjectKey, term, status) {
   if (status === 'locked') return '';
-  const subjectKey = subjectToKey(subject, classNum);
+  const key   = subjectKey || subjectToKey(subject, classNum);
   const label = term === 'HY' ? 'HY Marks' : 'FT Marks';
   return `<button class="btn btn-sm btn-secondary me-enter-btn"
     data-classid="${classId}" data-classnum="${classNum}" data-section="${section}"
-    data-subject="${escHtml(subject)}" data-subjectkey="${subjectKey}" data-term="${term}">
+    data-subject="${escHtml(subject)}" data-subjectkey="${key}" data-term="${term}">
     ${label}
   </button>`;
 }
 
 // ─── GRID ─────────────────────────────────────────────────────────────────────
 async function openGrid(classId, classNum, section, subjectLabel, subjectKey, term) {
-  ME.activeClass = { classId, classNum: parseInt(classNum), section, subjectLabel, subjectKey, term };
+  // Resolve classNum as integer (handles Roman numerals like "IX" → 9)
+  const classNumInt = classNumFromId(classId) || parseInt(classNum) || classNum;
+  ME.activeClass = { classId, classNum: classNumInt, section, subjectLabel, subjectKey, term };
 
   showScreen('screenGrid');
   $('gridTitle').textContent = `Class ${classId} — ${subjectLabel} — ${term === 'HY' ? 'Half Yearly' : 'Final Term'}`;
@@ -287,16 +407,22 @@ async function openGrid(classId, classNum, section, subjectLabel, subjectKey, te
   $('gridTableWrap').innerHTML = '<div class="me-loading"><div class="me-spinner"></div><br>Loading students…</div>';
 
   try {
+    // Students are stored with separate 'class' and 'section' fields, not a combined classId
+    const classStr = String(classNumInt || classNumFromId(classId));
+
     const studSnap = await db.collection('students')
-      .where('classId', '==', classId)
-      .orderBy('rollNo', 'asc').get();
+      .where('class', '==', classStr)
+      .get();
 
     if (studSnap.empty) {
-      $('gridTableWrap').innerHTML = '<div class="me-empty">No students found for this class.</div>';
+      $('gridTableWrap').innerHTML = `<div class="me-empty">No students found for Class ${classId}.</div>`;
       return;
     }
 
-    const students = studSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    // Sort by rollNo client-side (avoids composite index requirement)
+    const students = studSnap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (a.rollNo || 0) - (b.rollNo || 0));
     const termKey  = `${classId}_${term}`;
     const existing = {};
 
@@ -319,15 +445,26 @@ function renderGrid(students, existing) {
   const cfg      = CONFIG[classNum];
   const subj     = cfg?.subjects.find(s => s.key === subjectKey);
   const isSingle = subj?.singleTotal === true;
+  const isSenior = cfg?.markScheme === 'senior';
   const wrap     = $('gridTableWrap');
   wrap.innerHTML  = '';
+
+  // Build column headers based on mark scheme
+  let colHeaders;
+  if (isSingle) {
+    colHeaders = '<th>Marks /100</th>';
+  } else if (isSenior) {
+    colHeaders = '<th>IA /20</th><th>TE /80</th>';
+  } else {
+    colHeaders = '<th>IA /10</th><th>UT /30</th><th>TE /60</th>';
+  }
 
   const table = el('table', 'me-grid-table');
   table.innerHTML = `
     <thead>
       <tr>
         <th>#</th><th>Student Name</th>
-        ${isSingle ? '<th>Marks /100</th>' : '<th>IA /10</th><th>UT /30</th><th>TE /60</th>'}
+        ${colHeaders}
         <th>Total</th>
       </tr>
     </thead>
@@ -350,6 +487,15 @@ function renderGrid(students, existing) {
         <td>${idx + 1}</td>
         <td>${escHtml(student.name)}</td>
         <td><input type="number" class="me-mark-input single" data-field="singleMark" data-max="100" value="${val}" min="0" max="100" ${isLocked ? 'disabled' : ''}></td>
+        <td class="me-total-cell empty" data-total>—</td>
+      `;
+    } else if (isSenior) {
+      const ia = existData.IA ?? '', te = existData.TE ?? '';
+      tr.innerHTML = `
+        <td>${idx + 1}</td>
+        <td>${escHtml(student.name)}</td>
+        <td><input type="number" class="me-mark-input" data-field="IA" data-max="20"  value="${ia}" min="0" max="20"  ${isLocked ? 'disabled' : ''}></td>
+        <td><input type="number" class="me-mark-input" data-field="TE" data-max="80"  value="${te}" min="0" max="80"  ${isLocked ? 'disabled' : ''}></td>
         <td class="me-total-cell empty" data-total>—</td>
       `;
     } else {
@@ -394,7 +540,10 @@ function validateInput(inp) {
 
 function updateRowTotal(tr, isSingle) {
   const totalCell = tr.querySelector('[data-total]');
+  const cfg = CONFIG[ME.activeClass?.classNum];
+  const passmark = cfg?.passmark ?? 40;
   let total = null;
+
   if (isSingle) {
     const inp = tr.querySelector('[data-field="singleMark"]');
     if (inp.value !== '') total = parseFloat(inp.value) || 0;
@@ -402,15 +551,18 @@ function updateRowTotal(tr, isSingle) {
     const ia = tr.querySelector('[data-field="IA"]');
     const ut = tr.querySelector('[data-field="UT"]');
     const te = tr.querySelector('[data-field="TE"]');
-    if (ia.value !== '' || ut.value !== '' || te.value !== '')
-      total = (parseFloat(ia.value)||0) + (parseFloat(ut.value)||0) + (parseFloat(te.value)||0);
+    const fields = [ia, te];
+    if (ut) fields.splice(1, 0, ut);
+    if (fields.some(f => f && f.value !== ''))
+      total = fields.reduce((sum, f) => sum + (f ? (parseFloat(f.value) || 0) : 0), 0);
   }
+
   if (total === null) {
     totalCell.textContent = '—';
     totalCell.className = 'me-total-cell empty';
   } else {
     totalCell.textContent = total;
-    totalCell.className = `me-total-cell ${total >= 40 ? 'pass' : 'fail'}`;
+    totalCell.className = `me-total-cell ${total >= passmark ? 'pass' : 'fail'}`;
   }
 }
 
@@ -421,11 +573,18 @@ function scheduleSave(studentId, tr, isSingle) {
 }
 
 function collectRowData(tr, isSingle) {
-  const { subjectKey } = ME.activeClass;
+  const { subjectKey, classNum } = ME.activeClass;
+  const cfg = CONFIG[classNum];
+  const isSenior = cfg?.markScheme === 'senior';
   const academic = {};
   if (isSingle) {
     const val = parseFloat(tr.querySelector('[data-field="singleMark"]').value);
     academic[subjectKey] = { singleMark: isNaN(val) ? null : val, total: isNaN(val) ? null : val };
+  } else if (isSenior) {
+    const ia = parseFloat(tr.querySelector('[data-field="IA"]').value);
+    const te = parseFloat(tr.querySelector('[data-field="TE"]').value);
+    const total = (!isNaN(ia)||!isNaN(te)) ? (isNaN(ia)?0:ia)+(isNaN(te)?0:te) : null;
+    academic[subjectKey] = { IA: isNaN(ia)?null:ia, TE: isNaN(te)?null:te, total };
   } else {
     const ia = parseFloat(tr.querySelector('[data-field="IA"]').value);
     const ut = parseFloat(tr.querySelector('[data-field="UT"]').value);
@@ -491,7 +650,8 @@ $('btnSubmit').addEventListener('click', () => {
       const inp = tr.querySelector('[data-field="singleMark"]');
       if (!inp || inp.value === '') hasEmpty = true;
     } else {
-      ['IA','UT','TE'].forEach(f => {
+      const isSenior = CONFIG[classNum]?.markScheme === 'senior';
+      (isSenior ? ['IA','TE'] : ['IA','UT','TE']).forEach(f => {
         const inp = tr.querySelector(`[data-field="${f}"]`);
         if (!inp || inp.value === '') hasEmpty = true;
       });
@@ -513,16 +673,18 @@ $('btnConfirmSubmit').addEventListener('click', async () => {
   showSaveIndicator('Submitting…');
   collectAllRowsAndSchedule();
 
-  const { classId, term, subjectLabel } = ME.activeClass;
+  const { classId, term, subjectLabel, subjectKey } = ME.activeClass;
   const termKey = `${classId}_${term}`;
   const batch   = db.batch();
+  // Use subjectKey for Firestore path; fall back to subjectLabel for legacy assignments
+  const submitKey = subjectKey || subjectLabel;
 
   document.querySelectorAll('#gridTbody tr').forEach(tr => {
     const sid = tr.dataset.studentId;
     if (!sid) return;
     const ref = db.collection('marks').doc(termKey).collection('students').doc(sid);
     batch.set(ref, {
-      [`submittedSubjects.${subjectLabel}`]: { by: ME.user.uid, at: firebase.firestore.FieldValue.serverTimestamp(), status: 'submitted' },
+      [`submittedSubjects.${submitKey}`]: { by: ME.user.uid, at: firebase.firestore.FieldValue.serverTimestamp(), status: 'submitted' },
       lastUpdatedBy: ME.user.uid,
       lastUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
@@ -587,7 +749,7 @@ async function renderCTDashboard() {
       tbody.innerHTML = '';
 
       enterableSubjects.forEach(subj => {
-        const sub = submitted[subj.label] || {};
+        const sub = submitted[subj.key] || submitted[subj.label] || {};
         let status = 'not-started';
         if (isLocked) status = 'locked';
         else if (sub.status === 'submitted') { status = 'submitted'; submittedCount++; }
@@ -634,11 +796,14 @@ async function openStudentList(term) {
   $('slTableBody').innerHTML  = '<tr><td colspan="6" class="me-loading"><div class="me-spinner"></div><br>Loading…</td></tr>';
 
   try {
+    const ctClassStr = String(classNumFromId(classId));
     const studSnap = await db.collection('students')
-      .where('classId', '==', classId)
-      .orderBy('rollNo', 'asc').get();
+      .where('class', '==', ctClassStr)
+      .get();
 
-    const students = studSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const students = studSnap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (a.rollNo || 0) - (b.rollNo || 0));
     const termKey  = `${classId}_${term}`;
     const existing = {};
 
