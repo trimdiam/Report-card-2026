@@ -24,7 +24,8 @@ const ME = {
   activeClass:  null,      // subject teacher grid context
   activeStudent: null,     // { studentId, studentData, hyData, ftData }
   saveTimer:    null,
-  pendingSaves: new Map()
+  pendingSaves: new Map(),
+  backUrl:      '../index.html'   // SFS Connect portal
 };
 
 // ─── GRADES ───────────────────────────────────────────────────────────────────
@@ -51,29 +52,44 @@ const el = (tag, cls, html) => {
   return e;
 };
 
+// ─── SCREEN MANAGER ──────────────────────────────────────────────────────────
 function showScreen(id) {
   document.querySelectorAll('.me-screen').forEach(s => s.classList.remove('active'));
-  $(id).classList.add('active');
+  const target = $(id);
+  if (target) {
+    target.style.display = '';   // ensure display is restored if hidden
+    target.classList.add('active');
+  }
 }
 
-function showSaveIndicator(text = 'Saving…') {
-  const ind = $('saveIndicator');
-  ind.textContent = text;
-  ind.classList.add('visible');
+// ─── SAVE INDICATOR ──────────────────────────────────────────────────────────
+function showSaveIndicator(msg = 'Saving…') {
+  const el = $('saveIndicator');
+  if (el) { el.textContent = msg; el.style.opacity = '1'; }
 }
-function hideSaveIndicator(text = '') {
-  const ind = $('saveIndicator');
-  if (text) { ind.textContent = text; setTimeout(() => ind.classList.remove('visible'), 1800); }
-  else ind.classList.remove('visible');
-}
-
-function escHtml(str) {
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function hideSaveIndicator(msg = 'Saved ✓') {
+  const el = $('saveIndicator');
+  if (!el) return;
+  el.textContent = msg;
+  setTimeout(() => { el.style.opacity = '0'; el.textContent = ''; }, 2000);
 }
 
-function subjectToKey(subjectLabel, classNum) {
-  const cfg = CONFIG[parseInt(classNum)];
-  if (!cfg) return '';
+// ─── URL PARAMS ───────────────────────────────────────────────────────────────
+function getParams() {
+  const p = new URLSearchParams(window.location.search);
+  return {
+    classId:  p.get('classId')  || '',
+    subject:  p.get('subject')  || '',
+    term:     p.get('term')     || 'HY',
+    action:   p.get('action')   || ''
+  };
+}
+
+// ─── CONFIG HELPERS ───────────────────────────────────────────────────────────
+function getSubjectKeyFromLabel(subjectLabel) {
+  if (!window._sfsConfig) return '';
+  const cfg = window._sfsConfig;
+  if (!cfg || !cfg.subjects) return '';
   const found = cfg.subjects.find(s => s.label === subjectLabel);
   return found ? found.key : '';
 }
@@ -86,7 +102,9 @@ auth.onAuthStateChanged(async user => {
   } else {
     ME.user = null;
     ME.teacher = null;
-    showScreen('screenLogin');
+    // Redirect to main portal — auth is shared via Firebase session
+    window.location.href = ME.backUrl || '../index.html';
+    return;
   }
 });
 
@@ -95,6 +113,10 @@ function idToEmail(id) {
   return id.trim().toLowerCase().replace(/[^a-z0-9]/g, '_') + '@stfrancis.school';
 }
 
+// Login is now handled by the main portal (pro-leo-site/index.html).
+// Unauthenticated users are redirected there by onAuthStateChanged above.
+// The loginForm submit handler is intentionally disabled.
+/*
 $('loginForm').addEventListener('submit', async e => {
   e.preventDefault();
   const email    = idToEmail($('loginEmail').value);
@@ -112,6 +134,7 @@ $('loginForm').addEventListener('submit', async e => {
     $('btnLogin').textContent = 'Sign In as Teacher';
   }
 });
+*/
 
 function friendlyAuthError(code) {
   const map = {
@@ -150,529 +173,248 @@ async function loadTeacherAndRoute(uid) {
             tSnap = await db.collection('teachers')
               .where('teacherId', '==', tid.toUpperCase()).limit(1).get();
           }
-          // Try loginId field mirror (set by createTeacherLogin)
+          // Try loginId field as fallback
           if (tSnap.empty) {
             tSnap = await db.collection('teachers')
               .where('loginId', '==', tid).limit(1).get();
           }
           if (!tSnap.empty) teacherData = tSnap.docs[0].data();
         }
+        // Also merge user-level tpAssignments / tpRole written by TA panel
+        if (teacherData) {
+          if (userData.tpRole)            teacherData.role            = userData.tpRole;
+          if (userData.tpClassTeacherOf)  teacherData.classTeacherOf  = userData.tpClassTeacherOf;
+          if (userData.tpAssignments)     teacherData.assignments     = userData.tpAssignments;
+        } else {
+          // Build minimal teacher doc from userData
+          teacherData = {
+            role:          userData.tpRole || 'subject_teacher',
+            classTeacherOf: userData.tpClassTeacherOf || null,
+            assignments:   userData.tpAssignments || [],
+            name:          userData.name || userData.displayName || ''
+          };
+        }
       }
     }
 
     if (!teacherData) {
-      showScreen('screenDashboard');
-      $('dashboardBody').innerHTML = '<tr><td colspan="5" class="me-empty">Teacher record not found. Contact admin.</td></tr>';
+      console.warn('markentry: No teacher document found for uid', uid);
+      showScreen('screenLogin');   // unexpected — show login as fallback
       return;
     }
 
-    ME.teacher = { uid, ...teacherData };
-    $('headerTeacherName').textContent = ME.teacher.name || '';
+    ME.teacher = teacherData;
 
-    // Detect class teacher role
-    ME.isClassTeacher = (ME.teacher.role === 'class_teacher') ||
-                        !!ME.teacher.classTeacherOf ||
-                        !!ME.teacher.classTeacher;
+    // Update header name
+    const nameEl = $('headerTeacherName');
+    if (nameEl) nameEl.textContent = teacherData.name || '';
 
-    // Determine CT's classId ("III-A" format)
-    if (ME.isClassTeacher) {
-      if (ME.teacher.classTeacherOf) {
-        ME.ctClassId = ME.teacher.classTeacherOf;          // "III-A"
-      } else if (ME.teacher.classTeacher) {
-        ME.ctClassId = ME.teacher.classTeacher + '-A';     // "III" → "III-A"
+    // Route based on URL params
+    const params = getParams();
+
+    if (params.action === 'review') {
+      // Class-teacher review flow (deep-linked from portal)
+      const ctClassId = params.classId || teacherData.classTeacherOf || '';
+      if (ctClassId) {
+        await initCTDashboard(ctClassId, params.term);
+      } else {
+        showScreen('screenDashboard');
+        await loadDashboard(uid, teacherData);
       }
-      ME.ctClassNum = ME.ctClassId ? classNumFromId(ME.ctClassId) : null;
-    }
-
-    // ─── PHASE 3: URL param deep-linking ───────────────────────────────────
-    const params      = new URLSearchParams(window.location.search);
-    const urlClassId  = params.get('classId');
-    const urlSubject  = params.get('subject');
-    const urlTerm     = params.get('term') || 'HY';
-    const urlAction   = params.get('action');
-
-    if (urlClassId && urlSubject) {
-      // Deep-link: go directly to mark entry grid
-      const classNumInt = classNumFromId(urlClassId);
-      const section     = urlClassId.split('-')[1] || 'A';
-      const subjectCfg  = CONFIG[classNumInt]?.subjects.find(s => s.key === urlSubject);
-      const subjectLbl  = subjectCfg?.label || urlSubject;
-      await openGrid(urlClassId, classNumInt, section, subjectLbl, urlSubject, urlTerm);
       return;
     }
 
-    if (urlClassId && urlAction === 'review' && ME.isClassTeacher) {
-      // Deep-link: go directly to class teacher student list
-      ME.ctClassId  = urlClassId;
-      ME.ctClassNum = classNumFromId(urlClassId);
-      await openStudentList(urlTerm);
+    if (params.classId && params.subject) {
+      // Subject-teacher deep link — go straight to grid
+      await openMarkGrid(params.classId, params.subject, params.term);
       return;
     }
-    // ────────────────────────────────────────────────────────────────────────
 
-    if (ME.isClassTeacher) {
-      await renderCTDashboard();
-      showScreen('screenCTDashboard');
-    } else {
-      $('teacherName').textContent = ME.teacher.name || 'Teacher';
-      await renderSubjectDashboard();
-      showScreen('screenDashboard');
-    }
-  } catch (err) {
-    console.error(err);
+    // No params — show dashboard (subject teacher default)
     showScreen('screenDashboard');
-    $('dashboardBody').innerHTML = `<tr><td colspan="5" class="me-empty">Error: ${err.message}</td></tr>`;
+    await loadDashboard(uid, teacherData);
+
+  } catch (err) {
+    console.error('loadTeacherAndRoute:', err);
+    showScreen('screenLogin');   // fallback
   }
 }
 
-// ════════════════════════════════════════════════════════════════════════════════
-// SUBJECT TEACHER — DASHBOARD & GRID (Phase 1)
-// ════════════════════════════════════════════════════════════════════════════════
+// ─── DASHBOARD ────────────────────────────────────────────────────────────────
+async function loadDashboard(uid, teacherData) {
+  const tbody = $('dashboardBody');
+  if (!tbody) return;
 
-async function renderSubjectDashboard() {
-  const assignments = ME.teacher.assignments || [];
+  const role         = teacherData.role || 'subject_teacher';
+  const assignments  = teacherData.assignments || [];
+
+  // Class-teacher with no subject assignments → go to CT dashboard
+  if (role === 'class_teacher' && !assignments.length) {
+    const ctId = teacherData.classTeacherOf || '';
+    if (ctId) { await initCTDashboard(ctId); return; }
+  }
+
   if (!assignments.length) {
-    $('dashboardBody').innerHTML = '<tr><td colspan="5" class="me-empty">No subject assignments found. Contact admin.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:#888;">No subject assignments found.</td></tr>';
     return;
   }
 
-  // Phase 3 format has classId directly; legacy format uses asgn.class + asgn.section
-  const isNewFormat = assignments[0].classId !== undefined;
+  const params = getParams();
+  const term   = params.term || 'HY';
 
-  if (isNewFormat) {
-    await renderSubjectDashboardNew(assignments);
-  } else {
-    await renderSubjectDashboardLegacy(assignments);
-  }
+  tbody.innerHTML = assignments.map(a => {
+    const classId    = a.classId || (a.class + (a.section ? '-'+a.section : '-A'));
+    const subjectKey = a.subjectKey || getSubjectKeyFromLabel(a.subjectLabel);
+    return `<tr>
+      <td>${classId.split('-')[0]}</td>
+      <td>${classId.split('-')[1] || 'A'}</td>
+      <td>${a.subjectLabel || subjectKey}</td>
+      <td><button class="btn btn-gold btn-sm" onclick="openMarkGrid('${classId}','${subjectKey}','HY')">Enter HY Marks</button></td>
+      <td><button class="btn btn-sm btn-secondary" onclick="openMarkGrid('${classId}','${subjectKey}','FT')">Enter FT Marks</button></td>
+    </tr>`;
+  }).join('');
 }
 
-// Phase 3 format: { subjectKey, subjectLabel, classId, classNum, section, term }
-async function renderSubjectDashboardNew(assignments) {
-  // Fetch statuses per termKey
-  const statusMap = {};
-  const termSets = new Set(assignments.map(a => `${a.classId}_${a.term}`));
-  for (const termKey of termSets) {
-    try {
-      const snap = await db.collection('marks').doc(termKey).collection('students').limit(200).get();
-      snap.forEach(doc => {
-        const data = doc.data();
-        const submitted = data.submittedSubjects || {};
-        assignments.filter(a => `${a.classId}_${a.term}` === termKey).forEach(a => {
-          const mapKey = `${termKey}__${a.subjectKey}`;
-          if (data.status === 'locked')
-            statusMap[mapKey] = 'locked';
-          else if (submitted[a.subjectKey]?.status === 'submitted')
-            statusMap[mapKey] = statusMap[mapKey] === 'locked' ? 'locked' : 'submitted';
-          else if (data.status === 'draft')
-            statusMap[mapKey] = statusMap[mapKey] || 'draft';
-        });
-      });
-    } catch (_) {}
+// ─── MARK ENTRY GRID ─────────────────────────────────────────────────────────
+async function openMarkGrid(classId, subjectKey, term) {
+  ME.activeClass = { classId, subjectKey, term };
+  const params   = getParams();
+
+  // Load config
+  if (!window._sfsConfig) {
+    const cfgSnap = await db.collection('settings').doc('config').get();
+    if (cfgSnap.exists) window._sfsConfig = cfgSnap.data();
   }
 
-  const tbody = $('dashboardBody');
-  tbody.innerHTML = '';
-
-  // Update header for new layout (Class | Subject | Term | Status | Action)
-  const thead = tbody.closest('table').querySelector('thead tr');
-  if (thead) thead.innerHTML = '<th>Class</th><th>Subject</th><th>Term</th><th>Status</th><th>Action</th>';
-
-  for (const asgn of assignments) {
-    const { subjectKey, subjectLabel, classId, classNum, section, term } = asgn;
-    const classNumParsed = classNum || parseInt(classId.split('-')[0]);
-    const sec = section || classId.split('-')[1] || 'A';
-    const mapKey = `${classId}_${term}__${subjectKey}`;
-    const status = statusMap[mapKey] || 'not-started';
-
-    const tr = el('tr');
-    tr.innerHTML = `
-      <td>${classId}</td>
-      <td>${escHtml(subjectLabel)}</td>
-      <td>${term === 'HY' ? 'Half Yearly' : 'Final Term'}</td>
-      <td>${statusBadge(status)}</td>
-      <td>${status !== 'locked'
-        ? `<button class="btn btn-sm btn-secondary me-enter-btn"
-             data-classid="${classId}" data-classnum="${classNumParsed}"
-             data-section="${sec}" data-subject="${escHtml(subjectLabel)}"
-             data-subjectkey="${subjectKey}" data-term="${term}">
-             Enter Marks &rarr;
-           </button>`
-        : '<span style="color:var(--me-muted);font-size:0.82rem;">&#128274; Locked</span>'
-      }</td>
-    `;
-    tbody.appendChild(tr);
-  }
-
-  tbody.querySelectorAll('.me-enter-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      openGrid(btn.dataset.classid, btn.dataset.classnum, btn.dataset.section,
-               btn.dataset.subject, btn.dataset.subjectkey, btn.dataset.term);
-    });
-  });
-}
-
-// Legacy format: { class, section, subject } — also handles mixed (subjectLabel/subjectKey present)
-async function renderSubjectDashboardLegacy(assignments) {
-  const rows = [];
-  for (const asgn of assignments) {
-    const classId    = asgn.classId || `${asgn.class}-${asgn.section}`;
-    const subjectRef = asgn.subjectKey || asgn.subject || asgn.subjectLabel || '';
-    for (const term of ['HY', 'FT']) rows.push({ ...asgn, classId, term, _subjectRef: subjectRef });
-  }
-
-  const statusMap = await fetchAssignmentStatuses(rows);
-  const tbody = $('dashboardBody');
-  tbody.innerHTML = '';
-
-  const seen = new Set();
-  for (const asgn of assignments) {
-    const classId      = asgn.classId || `${asgn.class}-${asgn.section}`;
-    const classNum     = asgn.classNum || asgn.class;
-    const section      = asgn.section || classId.split('-')[1] || 'A';
-    const subjectName  = asgn.subject || asgn.subjectLabel || '—';
-    const subjectKey   = asgn.subjectKey || subjectToKey(subjectName, classNum);
-
-    const key = `${classId}__${subjectKey || subjectName}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-
-    const hyStatus = statusMap[`${classId}_HY__${subjectKey || subjectName}`] || 'not-started';
-    const ftStatus = statusMap[`${classId}_FT__${subjectKey || subjectName}`] || 'not-started';
-
-    const tr = el('tr');
-    tr.innerHTML = `
-      <td>${classNum}</td>
-      <td>${section}</td>
-      <td>${escHtml(subjectName)}</td>
-      <td>${statusBadge(hyStatus)} ${actionBtn(classId, classNum, section, subjectName, subjectKey, 'HY', hyStatus)}</td>
-      <td>${statusBadge(ftStatus)} ${actionBtn(classId, classNum, section, subjectName, subjectKey, 'FT', ftStatus)}</td>
-    `;
-    tbody.appendChild(tr);
-  }
-
-  tbody.querySelectorAll('.me-enter-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      openGrid(btn.dataset.classid, btn.dataset.classnum, btn.dataset.section,
-               btn.dataset.subject, btn.dataset.subjectkey, btn.dataset.term);
-    });
-  });
-}
-
-async function fetchAssignmentStatuses(rows) {
-  const statusMap = {};
-  const termSets = new Set(rows.map(r => `${r.classId}_${r.term}`));
-
-  for (const termKey of termSets) {
-    try {
-      const snap = await db.collection('marks').doc(termKey).collection('students').limit(200).get();
-      snap.forEach(doc => {
-        const data = doc.data();
-        const submitted = data.submittedSubjects || {};
-        rows.filter(r => `${r.classId}_${r.term}` === termKey).forEach(r => {
-          const subRef = r._subjectRef || r.subjectKey || r.subject || '';
-          const mapKey = `${termKey}__${subRef}`;
-          if (data.status === 'locked')
-            statusMap[mapKey] = 'locked';
-          else if (submitted[subRef]?.status === 'submitted')
-            statusMap[mapKey] = statusMap[mapKey] === 'locked' ? 'locked' : 'submitted';
-          else if (data.status === 'draft')
-            statusMap[mapKey] = statusMap[mapKey] || 'draft';
-        });
-      });
-    } catch (_) { /* collection may not exist yet */ }
-  }
-  return statusMap;
-}
-
-function statusBadge(status) {
-  const map = {
-    'not-started': ['status-not-started', '&#9711; Not Started'],
-    'draft':       ['status-draft',       '&#9998; Draft'],
-    'submitted':   ['status-submitted',   '&#10003; Submitted'],
-    'locked':      ['status-locked',      '&#128274; Locked']
-  };
-  const [cls, label] = map[status] || map['not-started'];
-  return `<span class="status-badge ${cls}">${label}</span>`;
-}
-
-function actionBtn(classId, classNum, section, subject, subjectKey, term, status) {
-  if (status === 'locked') return '';
-  const key   = subjectKey || subjectToKey(subject, classNum);
-  const label = term === 'HY' ? 'HY Marks' : 'FT Marks';
-  return `<button class="btn btn-sm btn-secondary me-enter-btn"
-    data-classid="${classId}" data-classnum="${classNum}" data-section="${section}"
-    data-subject="${escHtml(subject)}" data-subjectkey="${key}" data-term="${term}">
-    ${label}
-  </button>`;
-}
-
-// ─── GRID ─────────────────────────────────────────────────────────────────────
-async function openGrid(classId, classNum, section, subjectLabel, subjectKey, term) {
-  // Resolve classNum as integer (handles Roman numerals like "IX" → 9)
-  const classNumInt = classNumFromId(classId) || parseInt(classNum) || classNum;
-  ME.activeClass = { classId, classNum: classNumInt, section, subjectLabel, subjectKey, term };
-
+  $('gridTitle').textContent    = `Class ${classId} — ${subjectKey} — ${term === 'HY' ? 'Half Yearly' : 'Final Term'}`;
+  $('gridSubtitle').textContent = `Academic Year 2026–2027`;
   showScreen('screenGrid');
-  $('gridTitle').textContent = `Class ${classId} — ${subjectLabel} — ${term === 'HY' ? 'Half Yearly' : 'Final Term'}`;
-  $('gridSubtitle').textContent = 'Academic Year 2026–2027';
-  $('gridTableWrap').innerHTML = '<div class="me-loading"><div class="me-spinner"></div><br>Loading students…</div>';
+
+  await loadGrid(classId, subjectKey, term);
+}
+
+async function loadGrid(classId, subjectKey, term) {
+  const wrap = $('gridTableWrap');
+  wrap.innerHTML = '<div class="me-loading"><div class="me-spinner"></div><br>Loading students…</div>';
 
   try {
-    // Students are stored with separate 'class' and 'section' fields, not a combined classId
-    const classStr = String(classNumInt || classNumFromId(classId));
-
-    const studSnap = await db.collection('students')
-      .where('class', '==', classStr)
+    const classNum = classNumFromId(classId);
+    const sSnap    = await db.collection('students')
+      .where('class', '==', String(classNum))
+      .orderBy('rollNo')
       .get();
 
-    if (studSnap.empty) {
-      $('gridTableWrap').innerHTML = `<div class="me-empty">No students found for Class ${classId}.</div>`;
+    if (sSnap.empty) {
+      wrap.innerHTML = '<p style="text-align:center;padding:2rem;">No students found for this class.</p>';
       return;
     }
 
-    // Sort by rollNo client-side (avoids composite index requirement)
-    const students = studSnap.docs
-      .map(d => ({ id: d.id, ...d.data() }))
-      .sort((a, b) => (a.rollNo || 0) - (b.rollNo || 0));
+    // Load existing marks
     const termKey  = `${classId}_${term}`;
-    const existing = {};
-
+    const marksRef = db.collection('marks').doc(termKey).collection('students');
+    const existingMarks = {};
     try {
-      const markSnaps = await Promise.all(
-        students.map(s => db.collection('marks').doc(termKey).collection('students').doc(s.id).get())
-      );
-      markSnaps.forEach((snap, i) => { if (snap.exists) existing[students[i].id] = snap.data(); });
-    } catch (_) {}
+      const mSnap = await marksRef.get();
+      mSnap.forEach(d => { existingMarks[d.id] = d.data(); });
+    } catch(e) { /* ok — no marks yet */ }
 
-    renderGrid(students, existing);
-  } catch (err) {
-    console.error(err);
-    $('gridTableWrap').innerHTML = `<div class="me-empty">Error: ${err.message}</div>`;
-  }
-}
+    // Build grid
+    const cfg = window._sfsConfig || {};
+    const subjectCfg = (cfg.subjects || []).find(s => s.key === subjectKey) || {};
+    const maxMarks   = subjectCfg.maxMarks || 100;
 
-function renderGrid(students, existing) {
-  const { classNum, subjectKey } = ME.activeClass;
-  const cfg      = CONFIG[classNum];
-  const subj     = cfg?.subjects.find(s => s.key === subjectKey);
-  const isSingle = subj?.singleTotal === true;
-  const isSenior = cfg?.markScheme === 'senior';
-  const wrap     = $('gridTableWrap');
-  wrap.innerHTML  = '';
+    let html = `<table class="me-table"><thead><tr>
+      <th>#</th><th>Student Name</th><th>Roll No</th>
+      <th>Marks (max ${maxMarks})</th><th>Grade</th><th>Remarks</th>
+    </tr></thead><tbody>`;
 
-  // Build column headers based on mark scheme
-  let colHeaders;
-  if (isSingle) {
-    colHeaders = '<th>Marks /100</th>';
-  } else if (isSenior) {
-    colHeaders = '<th>IA /20</th><th>TE /80</th>';
-  } else {
-    colHeaders = '<th>IA /10</th><th>UT /30</th><th>TE /60</th>';
-  }
+    sSnap.docs.forEach((doc, i) => {
+      const s   = doc.data();
+      const sid = doc.id;
+      const existing = existingMarks[sid] || {};
+      const subMarks  = existing[subjectKey] || {};
+      const marks     = subMarks.marks != null ? subMarks.marks : '';
+      const remarks   = subMarks.remarks || '';
+      const grade     = marks !== '' ? computeGrade(Number(marks), maxMarks) : '—';
+      const locked    = existing.status === 'locked';
 
-  const table = el('table', 'me-grid-table');
-  table.innerHTML = `
-    <thead>
-      <tr>
-        <th>#</th><th>Student Name</th>
-        ${colHeaders}
-        <th>Total</th>
-      </tr>
-    </thead>
-    <tbody id="gridTbody"></tbody>
-  `;
-  wrap.appendChild(table);
-
-  const tbody    = table.querySelector('#gridTbody');
-  const allInputs = [];
-
-  students.forEach((student, idx) => {
-    const existData = existing[student.id]?.academics?.[subjectKey] || {};
-    const isLocked  = existing[student.id]?.status === 'locked';
-    const tr = el('tr');
-    tr.dataset.studentId = student.id;
-
-    if (isSingle) {
-      const val = existData.singleMark ?? '';
-      tr.innerHTML = `
-        <td>${idx + 1}</td>
-        <td>${escHtml(student.name)}</td>
-        <td><input type="number" class="me-mark-input single" data-field="singleMark" data-max="100" value="${val}" min="0" max="100" ${isLocked ? 'disabled' : ''}></td>
-        <td class="me-total-cell empty" data-total>—</td>
-      `;
-    } else if (isSenior) {
-      const ia = existData.IA ?? '', te = existData.TE ?? '';
-      tr.innerHTML = `
-        <td>${idx + 1}</td>
-        <td>${escHtml(student.name)}</td>
-        <td><input type="number" class="me-mark-input" data-field="IA" data-max="20"  value="${ia}" min="0" max="20"  ${isLocked ? 'disabled' : ''}></td>
-        <td><input type="number" class="me-mark-input" data-field="TE" data-max="80"  value="${te}" min="0" max="80"  ${isLocked ? 'disabled' : ''}></td>
-        <td class="me-total-cell empty" data-total>—</td>
-      `;
-    } else {
-      const ia = existData.IA ?? '', ut = existData.UT ?? '', te = existData.TE ?? '';
-      tr.innerHTML = `
-        <td>${idx + 1}</td>
-        <td>${escHtml(student.name)}</td>
-        <td><input type="number" class="me-mark-input" data-field="IA" data-max="10"  value="${ia}" min="0" max="10"  ${isLocked ? 'disabled' : ''}></td>
-        <td><input type="number" class="me-mark-input" data-field="UT" data-max="30"  value="${ut}" min="0" max="30"  ${isLocked ? 'disabled' : ''}></td>
-        <td><input type="number" class="me-mark-input" data-field="TE" data-max="60"  value="${te}" min="0" max="60"  ${isLocked ? 'disabled' : ''}></td>
-        <td class="me-total-cell empty" data-total>—</td>
-      `;
-    }
-
-    tbody.appendChild(tr);
-    const inputs = tr.querySelectorAll('.me-mark-input');
-    inputs.forEach(inp => allInputs.push(inp));
-    updateRowTotal(tr, isSingle);
-
-    if (!isLocked) {
-      inputs.forEach(inp => {
-        inp.addEventListener('input',  () => { validateInput(inp); updateRowTotal(tr, isSingle); });
-        inp.addEventListener('blur',   () => { validateInput(inp); updateRowTotal(tr, isSingle); scheduleSave(student.id, tr, isSingle); });
-      });
-    }
-  });
-
-  allInputs.forEach((inp, i) => {
-    inp.addEventListener('keydown', e => {
-      if (e.key === 'Enter') { e.preventDefault(); const next = allInputs[i + 1]; if (next) next.focus(); }
+      html += `<tr data-sid="${sid}">
+        <td>${i+1}</td>
+        <td>${s.name || '—'}</td>
+        <td>${s.rollNo || '—'}</td>
+        <td><input type="number" class="me-mark-input" data-sid="${sid}" data-max="${maxMarks}"
+            value="${marks}" min="0" max="${maxMarks}" placeholder="—"
+            ${locked ? 'disabled' : ''}
+            oninput="onMarkInput(this)"></td>
+        <td class="grade-cell" id="grade-${sid}">${grade}</td>
+        <td><input type="text" class="me-remark-input" data-sid="${sid}"
+            value="${remarks}" placeholder="Optional…"
+            ${locked ? 'disabled' : ''}
+            oninput="scheduleSave()"></td>
+      </tr>`;
     });
-  });
-}
 
-function validateInput(inp) {
-  const max = parseInt(inp.dataset.max);
-  const val = parseFloat(inp.value);
-  if (inp.value !== '' && (isNaN(val) || val < 0 || val > max)) { inp.classList.add('error'); return false; }
-  inp.classList.remove('error');
-  return true;
-}
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
 
-function updateRowTotal(tr, isSingle) {
-  const totalCell = tr.querySelector('[data-total]');
-  const cfg = CONFIG[ME.activeClass?.classNum];
-  const passmark = cfg?.passmark ?? 40;
-  let total = null;
-
-  if (isSingle) {
-    const inp = tr.querySelector('[data-field="singleMark"]');
-    if (inp.value !== '') total = parseFloat(inp.value) || 0;
-  } else {
-    const ia = tr.querySelector('[data-field="IA"]');
-    const ut = tr.querySelector('[data-field="UT"]');
-    const te = tr.querySelector('[data-field="TE"]');
-    const fields = [ia, te];
-    if (ut) fields.splice(1, 0, ut);
-    if (fields.some(f => f && f.value !== ''))
-      total = fields.reduce((sum, f) => sum + (f ? (parseFloat(f.value) || 0) : 0), 0);
-  }
-
-  if (total === null) {
-    totalCell.textContent = '—';
-    totalCell.className = 'me-total-cell empty';
-  } else {
-    totalCell.textContent = total;
-    totalCell.className = `me-total-cell ${total >= passmark ? 'pass' : 'fail'}`;
+  } catch(err) {
+    console.error(err);
+    wrap.innerHTML = `<p style="color:red;padding:2rem;">Error loading grid: ${err.message}</p>`;
   }
 }
 
-function scheduleSave(studentId, tr, isSingle) {
-  ME.pendingSaves.set(studentId, collectRowData(tr, isSingle));
+window.onMarkInput = function(input) {
+  const max   = Number(input.dataset.max) || 100;
+  const val   = Number(input.value);
+  const sid   = input.dataset.sid;
+  const grade = (input.value !== '' && !isNaN(val)) ? computeGrade(val, max) : '—';
+  const gradeEl = document.getElementById('grade-' + sid);
+  if (gradeEl) gradeEl.textContent = grade;
+  scheduleSave();
+};
+
+function scheduleSave() {
   clearTimeout(ME.saveTimer);
-  ME.saveTimer = setTimeout(() => flushSaves(), 800);
-}
-
-function collectRowData(tr, isSingle) {
-  const { subjectKey, classNum } = ME.activeClass;
-  const cfg = CONFIG[classNum];
-  const isSenior = cfg?.markScheme === 'senior';
-  const academic = {};
-  if (isSingle) {
-    const val = parseFloat(tr.querySelector('[data-field="singleMark"]').value);
-    academic[subjectKey] = { singleMark: isNaN(val) ? null : val, total: isNaN(val) ? null : val };
-  } else if (isSenior) {
-    const ia = parseFloat(tr.querySelector('[data-field="IA"]').value);
-    const te = parseFloat(tr.querySelector('[data-field="TE"]').value);
-    const total = (!isNaN(ia)||!isNaN(te)) ? (isNaN(ia)?0:ia)+(isNaN(te)?0:te) : null;
-    academic[subjectKey] = { IA: isNaN(ia)?null:ia, TE: isNaN(te)?null:te, total };
-  } else {
-    const ia = parseFloat(tr.querySelector('[data-field="IA"]').value);
-    const ut = parseFloat(tr.querySelector('[data-field="UT"]').value);
-    const te = parseFloat(tr.querySelector('[data-field="TE"]').value);
-    const total = (!isNaN(ia)||!isNaN(ut)||!isNaN(te))
-      ? (isNaN(ia)?0:ia)+(isNaN(ut)?0:ut)+(isNaN(te)?0:te) : null;
-    academic[subjectKey] = { IA: isNaN(ia)?null:ia, UT: isNaN(ut)?null:ut, TE: isNaN(te)?null:te, total };
-  }
-  return academic;
-}
-
-async function flushSaves() {
-  if (!ME.pendingSaves.size || !ME.activeClass) return;
-  const { classId, term } = ME.activeClass;
-  const termKey = `${classId}_${term}`;
-  const batch   = db.batch();
+  ME.saveTimer = setTimeout(saveDraft, 2000);
   showSaveIndicator('Saving…');
+}
 
-  for (const [studentId, academic] of ME.pendingSaves) {
-    const ref = db.collection('marks').doc(termKey).collection('students').doc(studentId);
-    batch.set(ref, {
-      academics:     academic,
-      status:        'draft',
-      lastUpdatedBy: ME.user.uid,
-      lastUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-  }
-  ME.pendingSaves.clear();
+async function saveDraft() {
+  const { classId, subjectKey, term } = ME.activeClass;
+  const termKey  = `${classId}_${term}`;
+  const marksRef = db.collection('marks').doc(termKey).collection('students');
+  const batch    = db.batch();
+
+  document.querySelectorAll('.me-mark-input').forEach(input => {
+    const sid     = input.dataset.sid;
+    const marks   = input.value !== '' ? Number(input.value) : null;
+    const remarkInput = document.querySelector(`.me-remark-input[data-sid="${sid}"]`);
+    const remarks = remarkInput ? remarkInput.value : '';
+
+    if (marks !== null) {
+      const ref = marksRef.doc(sid);
+      batch.set(ref, {
+        [subjectKey]: { marks, remarks, grade: computeGrade(marks, Number(input.dataset.max) || 100) },
+        lastUpdatedBy: ME.user.uid,
+        lastUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    }
+  });
 
   try {
     await batch.commit();
     hideSaveIndicator('Saved ✓');
-  } catch (err) {
-    console.error('Save failed:', err);
+  } catch(err) {
+    console.error(err);
     hideSaveIndicator('Save failed ✗');
   }
 }
 
-$('btnSaveDraft').addEventListener('click', async () => {
-  collectAllRowsAndSchedule();
-  await flushSaves();
-});
-
-function collectAllRowsAndSchedule() {
-  const { subjectKey, classNum } = ME.activeClass;
-  const cfg      = CONFIG[classNum];
-  const subj     = cfg?.subjects.find(s => s.key === subjectKey);
-  const isSingle = subj?.singleTotal === true;
-  document.querySelectorAll('#gridTbody tr').forEach(tr => {
-    const sid = tr.dataset.studentId;
-    if (sid) ME.pendingSaves.set(sid, collectRowData(tr, isSingle));
-  });
-}
+$('btnSaveDraft').addEventListener('click', saveDraft);
 
 $('btnSubmit').addEventListener('click', () => {
-  const { subjectKey, classNum } = ME.activeClass;
-  const subj     = CONFIG[classNum]?.subjects.find(s => s.key === subjectKey);
-  const isSingle = subj?.singleTotal === true;
-  let hasEmpty   = false;
-
-  document.querySelectorAll('#gridTbody tr').forEach(tr => {
-    if (isSingle) {
-      const inp = tr.querySelector('[data-field="singleMark"]');
-      if (!inp || inp.value === '') hasEmpty = true;
-    } else {
-      const isSenior = CONFIG[classNum]?.markScheme === 'senior';
-      (isSenior ? ['IA','TE'] : ['IA','UT','TE']).forEach(f => {
-        const inp = tr.querySelector(`[data-field="${f}"]`);
-        if (!inp || inp.value === '') hasEmpty = true;
-      });
-    }
-  });
-
-  $('submitModalMsg').textContent = hasEmpty
-    ? 'Some students have missing marks. Please fill all entries before submitting.'
-    : 'This will notify the class teacher that marks are ready for review. You will not be able to edit marks once submitted.';
-  $('btnConfirmSubmit').style.display = hasEmpty ? 'none' : '';
+  const { classId, subjectKey, term } = ME.activeClass;
+  $('submitModalMsg').textContent = `Submit marks for ${subjectKey} (${term}) to the Class Teacher?`;
   $('submitModal').classList.remove('hidden');
 });
 
@@ -680,571 +422,314 @@ $('btnCancelSubmit').addEventListener('click', () => $('submitModal').classList.
 
 $('btnConfirmSubmit').addEventListener('click', async () => {
   $('submitModal').classList.add('hidden');
-  $('btnSubmit').disabled = true;
+  await saveDraft();
+  const { classId, subjectKey, term } = ME.activeClass;
+  const termKey  = `${classId}_${term}`;
+  const marksRef = db.collection('marks').doc(termKey).collection('students');
   showSaveIndicator('Submitting…');
-  collectAllRowsAndSchedule();
-
-  const { classId, term, subjectLabel, subjectKey } = ME.activeClass;
-  const termKey = `${classId}_${term}`;
-  const batch   = db.batch();
-  // Use subjectKey for Firestore path; fall back to subjectLabel for legacy assignments
-  const submitKey = subjectKey || subjectLabel;
-
-  document.querySelectorAll('#gridTbody tr').forEach(tr => {
-    const sid = tr.dataset.studentId;
-    if (!sid) return;
-    const ref = db.collection('marks').doc(termKey).collection('students').doc(sid);
-    batch.set(ref, {
-      [`submittedSubjects.${submitKey}`]: { by: ME.user.uid, at: firebase.firestore.FieldValue.serverTimestamp(), status: 'submitted' },
-      lastUpdatedBy: ME.user.uid,
-      lastUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-  });
-
   try {
-    await flushSaves();
+    const snap  = await marksRef.get();
+    const batch = db.batch();
+    snap.forEach(doc => {
+      if (doc.data()[subjectKey]) {
+        batch.update(doc.ref, { [`${subjectKey}.status`]: 'submitted' });
+      }
+    });
     await batch.commit();
     hideSaveIndicator('Submitted ✓');
-    document.querySelectorAll('.me-mark-input').forEach(inp => inp.disabled = true);
-    $('btnSubmit').textContent = '✓ Submitted';
-  } catch (err) {
+  } catch(err) {
     console.error(err);
     hideSaveIndicator('Submit failed ✗');
-    $('btnSubmit').disabled = false;
   }
 });
 
 $('btnBackToDashboard').addEventListener('click', async () => {
-  clearTimeout(ME.saveTimer);
-  if (ME.pendingSaves.size) await flushSaves();
   ME.activeClass = null;
-  await renderSubjectDashboard();
   showScreen('screenDashboard');
+  await loadDashboard(ME.user.uid, ME.teacher);
 });
 
-// ════════════════════════════════════════════════════════════════════════════════
-// CLASS TEACHER — PHASE 2
-// ════════════════════════════════════════════════════════════════════════════════
+// ─── CLASS TEACHER DASHBOARD ─────────────────────────────────────────────────
+async function initCTDashboard(ctClassId, term = 'HY') {
+  ME.isClassTeacher = true;
+  ME.ctClassId      = ctClassId;
+  ME.ctClassNum     = classNumFromId(ctClassId);
+  ME.activeClass    = { classId: ctClassId, term };
 
-// ─── CT DASHBOARD ─────────────────────────────────────────────────────────────
-async function renderCTDashboard() {
-  const classId  = ME.ctClassId;
-  const classNum = ME.ctClassNum;
-  const cfg      = CONFIG[classNum];
+  $('ctDashTitle').textContent   = `Class Teacher Dashboard — Class ${ctClassId}`;
+  $('ctDashTeacher').textContent = `${ME.teacher.name || ''} | Class ${ctClassId}`;
+  showScreen('screenCTDashboard');
 
-  $('ctDashTitle').textContent   = `Class Teacher Dashboard — Class ${classId}`;
-  $('ctDashTeacher').textContent = ME.teacher.name || '';
+  await loadCTStatus(ctClassId);
+}
 
-  if (!cfg || !classId) {
-    $('ctHyStatusBody').innerHTML = '<tr><td colspan="3" class="me-empty">Class config not found.</td></tr>';
-    return;
+async function loadCTStatus(ctClassId) {
+  // Load config for subject list
+  if (!window._sfsConfig) {
+    const cfgSnap = await db.collection('settings').doc('config').get();
+    if (cfgSnap.exists) window._sfsConfig = cfgSnap.data();
   }
+  const cfg      = window._sfsConfig || {};
+  const subjects = cfg.subjects || [];
 
-  // Subjects that count (non-aggregate or leaf entries teachers enter)
-  const enterableSubjects = cfg.subjects.filter(s => !s.isAggregate);
+  for (const termKey of ['HY','FT']) {
+    const tbody   = termKey === 'HY' ? $('ctHyStatusBody') : $('ctFtStatusBody');
+    const progEl  = termKey === 'HY' ? $('ctHyProgress')   : $('ctFtProgress');
+    const lockBtn = termKey === 'HY' ? $('ctBtnReviewHY')  : $('ctBtnReviewFT');
 
-  for (const term of ['HY', 'FT']) {
-    const termKey  = `${classId}_${term}`;
-    const tbody    = $(term === 'HY' ? 'ctHyStatusBody' : 'ctFtStatusBody');
-    const progEl   = $(term === 'HY' ? 'ctHyProgress'  : 'ctFtProgress');
-    const lockBtn  = $(term === 'HY' ? 'ctBtnReviewHY' : 'ctBtnReviewFT');
     tbody.innerHTML = '<tr><td colspan="3" class="me-loading"><div class="me-spinner"></div></td></tr>';
 
     try {
-      const snap = await db.collection('marks').doc(termKey).collection('students').limit(1).get();
-      const sampleData = snap.empty ? {} : snap.docs[0].data();
-      const submitted  = sampleData.submittedSubjects || {};
-      const isLocked   = sampleData.status === 'locked';
+      const marksDocKey = `${ctClassId}_${termKey}`;
+      const snap        = await db.collection('marks').doc(marksDocKey).collection('students').get();
+      const marksMap    = {};
+      snap.forEach(d => { marksMap[d.id] = d.data(); });
 
-      let submittedCount = 0;
-      tbody.innerHTML = '';
+      let entered = 0;
+      tbody.innerHTML = subjects.map(s => {
+        // Find any student who has this subject's marks
+        const anyEntry = Object.values(marksMap).find(m => m[s.key] && m[s.key].marks != null);
+        const status   = anyEntry ? (anyEntry[s.key].status || 'draft') : 'pending';
+        if (anyEntry) entered++;
+        const badge = status === 'submitted' ? '<span class="status-badge status-submitted">Submitted</span>'
+                    : status === 'draft'     ? '<span class="status-badge status-draft">Draft</span>'
+                    : '<span class="status-badge">Pending</span>';
+        return `<tr><td>${s.label}</td><td>${anyEntry ? (ME.teacher.name || '—') : '—'}</td><td>${badge}</td></tr>`;
+      }).join('');
 
-      enterableSubjects.forEach(subj => {
-        const sub = submitted[subj.key] || submitted[subj.label] || {};
-        let status = 'not-started';
-        if (isLocked) status = 'locked';
-        else if (sub.status === 'submitted') { status = 'submitted'; submittedCount++; }
-        else if (sampleData.status === 'draft') status = 'draft';
-
-        const tr = el('tr');
-        tr.innerHTML = `
-          <td>${escHtml(subj.label)}</td>
-          <td style="font-size:0.8rem;color:var(--me-muted)">${sub.by ? '(submitted)' : '—'}</td>
-          <td>${statusBadge(status)}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-
-      const total = enterableSubjects.length;
-      progEl.textContent = isLocked
-        ? `All records locked`
-        : `${submittedCount} of ${total} subjects submitted`;
-
-      lockBtn.disabled = !isLocked && submittedCount < total;
-      lockBtn.dataset.term = term;
-    } catch (_) {
-      tbody.innerHTML = '<tr><td colspan="3" class="me-empty">No data yet.</td></tr>';
-      if (progEl) progEl.textContent = '0 of ' + enterableSubjects.length + ' subjects submitted';
-      if (lockBtn) lockBtn.disabled = true;
+      progEl.textContent = `${entered} / ${subjects.length} subjects entered`;
+      if (entered === subjects.length) {
+        lockBtn.disabled = false;
+      }
+    } catch(e) {
+      tbody.innerHTML = `<tr><td colspan="3" style="color:red">Error: ${e.message}</td></tr>`;
     }
   }
 }
+
+$('ctBtnRefresh').addEventListener('click', () => loadCTStatus(ME.ctClassId));
+$('ctBtnLogout').addEventListener('click', () => auth.signOut());
 
 $('ctBtnReviewHY').addEventListener('click', () => openStudentList('HY'));
 $('ctBtnReviewFT').addEventListener('click', () => openStudentList('FT'));
-$('ctBtnLogout').addEventListener('click', () => auth.signOut());
-$('ctBtnRefresh').addEventListener('click', async () => { await renderCTDashboard(); });
 
 // ─── STUDENT LIST ─────────────────────────────────────────────────────────────
 async function openStudentList(term) {
-  const classId  = ME.ctClassId;
-  const classNum = ME.ctClassNum;
-  ME.activeClass = { classId, classNum, term };
-
+  ME.activeClass = { ...ME.activeClass, term };
+  $('slTitle').textContent    = `Student Records — Class ${ME.ctClassId}`;
+  $('slSubtitle').textContent = `${term === 'HY' ? 'Half Yearly' : 'Final Term'} | Session 2026–2027`;
   showScreen('screenStudentList');
-  $('slTitle').textContent    = `Class ${classId} — ${term === 'HY' ? 'Half Yearly' : 'Final Term'} — Student Records`;
-  $('slSubtitle').textContent = 'Academic Year 2026–2027';
-  $('slTableBody').innerHTML  = '<tr><td colspan="8" class="me-loading"><div class="me-spinner"></div><br>Loading…</td></tr>';
 
-  try {
-    const ctClassStr = String(classNumFromId(classId));
-    const studSnap = await db.collection('students')
-      .where('class', '==', ctClassStr)
-      .get();
-
-    const students = studSnap.docs
-      .map(d => ({ id: d.id, ...d.data() }))
-      .sort((a, b) => (a.rollNo || 0) - (b.rollNo || 0));
-
-    // Fetch BOTH terms for all students in parallel
-    const [hySnaps, ftSnaps] = await Promise.all([
-      Promise.all(students.map(s => db.collection('marks').doc(`${classId}_HY`).collection('students').doc(s.id).get())),
-      Promise.all(students.map(s => db.collection('marks').doc(`${classId}_FT`).collection('students').doc(s.id).get()))
-    ]);
-    const existingHY = {}, existingFT = {};
-    hySnaps.forEach((snap, i) => { if (snap.exists) existingHY[students[i].id] = snap.data(); });
-    ftSnaps.forEach((snap, i) => { if (snap.exists) existingFT[students[i].id] = snap.data(); });
-
-    // Compute grand totals for every student
-    const cfg = CONFIG[classNum];
-    const maxMarks = cfg?.grandTotalMax || 0;
-
-    const hyEntries = students.map(s => ({ id: s.id, total: calcStudentTotal(existingHY[s.id], classNum) }));
-    const ftEntries = students.map(s => ({ id: s.id, total: calcStudentTotal(existingFT[s.id], classNum) }));
-
-    const hyRanks = computeRanks(hyEntries);
-    const ftRanks = computeRanks(ftEntries);
-
-    // Auto-save computed ranks to Firestore
-    await autoSaveRanks(students, existingHY, existingFT, hyRanks, ftRanks, classId);
-
-    renderStudentList(students, existingHY, existingFT, hyRanks, ftRanks, maxMarks, term, classNum);
-  } catch (err) {
-    $('slTableBody').innerHTML = `<tr><td colspan="8" class="me-empty">Error: ${err.message}</td></tr>`;
-  }
+  await loadStudentList(term);
 }
 
-function calcStudentTotal(markData, classNum) {
-  const cfg = CONFIG[classNum];
-  if (!cfg || !markData?.academics) return null;
-  const acad = markData.academics;
-  let total = 0;
-  cfg.subjects.filter(s => s.countInTotal).forEach(subj => {
-    if (subj.isAggregate) {
-      subj.components.forEach(cKey => {
-        total += (acad[cKey]?.total ?? 0);
-      });
-    } else {
-      total += (acad[subj.key]?.total ?? 0);
-    }
-  });
-  return total;
-}
-
-// Returns true only if every countInTotal (non-aggregate leaf) subject has a total entered
-function isStudentTotalComplete(markData, classNum) {
-  const cfg = CONFIG[classNum];
-  if (!cfg || !markData?.academics) return false;
-  const acad = markData.academics;
-  const leafSubjects = cfg.subjects.filter(s => s.countInTotal && !s.isAggregate);
-  return leafSubjects.every(subj => acad[subj.key]?.total != null);
-}
-
-// Compute ranks for all students given a list of { id, total } entries.
-// Students with null/incomplete totals are unranked.
-function computeRanks(entries) {
-  const ranked = entries.filter(e => e.total !== null && e.total !== undefined);
-  ranked.sort((a, b) => b.total - a.total);
-  const rankMap = {};
-  ranked.forEach((e, i) => { rankMap[e.id] = i + 1; });
-  return rankMap;
-}
-
-async function autoSaveRanks(students, existingHY, existingFT, hyRanks, ftRanks, classId) {
-  const totalStudents = students.length;
-  try {
-    const batch = db.batch();
-    students.forEach(s => {
-      const hyRank = hyRanks[s.id] || null;
-      const ftRank = ftRanks[s.id] || null;
-      const rankPayload = { hyRank, ftRank, totalStudents, autoComputed: true };
-      for (const t of ['HY', 'FT']) {
-        const ref = db.collection('marks').doc(`${classId}_${t}`)
-                      .collection('students').doc(s.id);
-        batch.set(ref, { rank: rankPayload, lastUpdatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
-      }
-    });
-    await batch.commit();
-  } catch (err) {
-    console.warn('autoSaveRanks failed:', err);
-  }
-}
-
-function renderStudentList(students, existingHY, existingFT, hyRanks, ftRanks, maxMarks, term, classNum) {
+async function loadStudentList(term) {
   const tbody = $('slTableBody');
-  tbody.innerHTML = '';
+  tbody.innerHTML = '<tr><td colspan="9" class="me-loading"><div class="me-spinner"></div></td></tr>';
 
-  // Update table header to show both terms
-  const thead = tbody.closest('table')?.querySelector('thead tr');
-  if (thead) {
-    thead.innerHTML = '<th>#</th><th>Student Name</th><th>HY Total</th><th>HY%</th><th>FT Total</th><th>FT%</th><th>Rank</th><th>Status</th><th>Action</th>';
+  try {
+    const sSnap = await db.collection('students')
+      .where('class', '==', String(ME.ctClassNum))
+      .orderBy('rollNo').get();
+
+    if (sSnap.empty) {
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:2rem;">No students found.</td></tr>';
+      return;
+    }
+
+    // Load marks
+    const termKey  = `${ME.ctClassId}_${term}`;
+    const mSnap    = await db.collection('marks').doc(termKey).collection('students').get();
+    const marksMap = {};
+    mSnap.forEach(d => { marksMap[d.id] = d.data(); });
+
+    // Compute totals and rank
+    const cfg      = window._sfsConfig || {};
+    const subjects = cfg.subjects || [];
+
+    const rows = sSnap.docs.map(doc => {
+      const s   = doc.data();
+      const sid = doc.id;
+      const m   = marksMap[sid] || {};
+
+      // HY total
+      let hyTotal = 0;
+      subjects.forEach(sub => {
+        const entry = m[sub.key];
+        if (entry && entry.marks != null) hyTotal += Number(entry.marks);
+      });
+      const hyMax = subjects.reduce((acc, sub) => acc + (sub.maxMarks || 100), 0);
+      const hyPct = hyMax ? Math.round((hyTotal / hyMax) * 100) : 0;
+
+      // FT total (placeholder — same structure)
+      const ftTermKey = `${ME.ctClassId}_FT`;
+      return { sid, s, m, hyTotal, hyMax, hyPct, status: m.status || 'draft' };
+    });
+
+    // Sort by HY total for rank
+    const sorted = [...rows].sort((a,b) => b.hyTotal - a.hyTotal);
+    const rankMap = {};
+    sorted.forEach((r, i) => { rankMap[r.sid] = i + 1; });
+
+    // Write ranks back
+    const batch = db.batch();
+    const mRef  = db.collection('marks').doc(termKey).collection('students');
+    rows.forEach(r => {
+      batch.set(mRef.doc(r.sid), { hyRank: rankMap[r.sid], totalStudents: rows.length }, { merge: true });
+    });
+    try { await batch.commit(); } catch(e) { /* ok */ }
+
+    tbody.innerHTML = rows.map((r, i) => {
+      const rank   = rankMap[r.sid];
+      const status = r.status === 'locked'
+        ? '<span class="status-badge status-locked">Locked</span>'
+        : '<span class="status-badge status-draft">Draft</span>';
+      return `<tr>
+        <td>${r.s.rollNo || i+1}</td>
+        <td>${r.s.name || '—'}</td>
+        <td>${r.hyTotal}</td>
+        <td>${r.hyPct}%</td>
+        <td>—</td><td>—</td>
+        <td>${rank}</td>
+        <td>${status}</td>
+        <td><button class="btn btn-sm btn-primary" onclick="openStudentForm('${r.sid}')">Open</button></td>
+      </tr>`;
+    }).join('');
+
+  } catch(err) {
+    console.error(err);
+    tbody.innerHTML = `<tr><td colspan="9" style="color:red">Error: ${err.message}</td></tr>`;
   }
-
-  const fmt = v => (Math.round(v * 10) / 10).toFixed(1);
-
-  students.forEach((student, idx) => {
-    const hyData   = existingHY[student.id] || {};
-    const ftData   = existingFT[student.id] || {};
-    const termData = term === 'HY' ? hyData : ftData;
-    const isLocked = termData.status === 'locked';
-
-    const hyTotal = calcStudentTotal(hyData, classNum);
-    const ftTotal = calcStudentTotal(ftData, classNum);
-    const hyPct   = (maxMarks > 0 && hyTotal !== null) ? fmt((hyTotal / maxMarks) * 100) + '%' : '—';
-    const ftPct   = (maxMarks > 0 && ftTotal !== null) ? fmt((ftTotal / maxMarks) * 100) + '%' : '—';
-    const hyRank  = hyRanks[student.id] || '—';
-    const ftRank  = ftRanks[student.id] || '—';
-    const rankDisplay = term === 'HY' ? hyRank : ftRank;
-
-    const tr = el('tr');
-    tr.innerHTML = `
-      <td>${idx + 1}</td>
-      <td style="font-weight:500">${escHtml(student.name)}</td>
-      <td>${hyTotal !== null ? hyTotal : '—'}</td>
-      <td style="color:var(--me-primary);font-weight:600">${hyPct}</td>
-      <td>${ftTotal !== null ? ftTotal : '—'}</td>
-      <td style="color:var(--me-primary);font-weight:600">${ftPct}</td>
-      <td style="font-weight:700">${rankDisplay}</td>
-      <td>${isLocked
-        ? '<span class="status-badge status-locked">&#128274; Locked</span>'
-        : '<span class="status-badge status-draft">&#128275; Open</span>'}</td>
-      <td>
-        <button class="btn btn-sm btn-primary ct-fill-btn" data-sid="${student.id}">
-          ${isLocked ? '&#128274; View' : '&#9998; Fill &amp; Lock'}
-        </button>
-      </td>
-    `;
-    tbody.appendChild(tr);
-  });
-
-  const allStudents = students;
-  tbody.querySelectorAll('.ct-fill-btn').forEach(btn => {
-    btn.addEventListener('click', () => openStudentForm(btn.dataset.sid, allStudents, term === 'HY' ? existingHY : existingFT));
-  });
-
-  // Lock All button
-  const existing = term === 'HY' ? existingHY : existingFT;
-  const allLocked = students.every(s => existing[s.id]?.status === 'locked');
-  $('btnLockAll').disabled = allLocked;
-  $('btnLockAll').textContent = allLocked ? '&#128274; All Locked' : '&#128274; Lock All Records';
 }
 
 $('btnBackToCTDash').addEventListener('click', async () => {
-  ME.activeClass = null;
-  await renderCTDashboard();
+  ME.activeStudent = null;
   showScreen('screenCTDashboard');
 });
 
-$('btnLockAll').addEventListener('click', () => {
-  $('lockModalMsg').textContent = `Lock ALL student records for Class ${ME.ctClassId}? Subject teachers will no longer be able to edit marks. This cannot be undone.`;
-  $('lockModal').dataset.mode = 'all';
-  $('lockModal').classList.remove('hidden');
-});
-
 // ─── STUDENT FORM ─────────────────────────────────────────────────────────────
-async function openStudentForm(studentId, students, existing) {
-  const student  = students.find(s => s.id === studentId);
-  const classId  = ME.ctClassId;
-  const classNum = ME.ctClassNum;
-  const term     = ME.activeClass.term;
+window.openStudentForm = async function(studentId) {
+  const term    = ME.activeClass.term;
+  const classId = ME.ctClassId;
+
+  // Load student data
+  const sDoc  = await db.collection('students').doc(studentId).get();
+  const sData = sDoc.exists ? sDoc.data() : {};
+
+  // Load marks
   const termKey  = `${classId}_${term}`;
+  const mRef     = db.collection('marks').doc(termKey).collection('students').doc(studentId);
+  const mSnap    = await mRef.get();
+  const marksData = mSnap.exists ? mSnap.data() : {};
 
-  ME.activeStudent = { studentId, student, classId, classNum, term };
+  // Load FT marks too
+  const ftTermKey = `${classId}_FT`;
+  const ftRef     = db.collection('marks').doc(ftTermKey).collection('students').doc(studentId);
+  const ftSnap    = await ftRef.get();
+  const ftData    = ftSnap.exists ? ftSnap.data() : {};
 
-  showScreen('screenStudentForm');
-  $('sfStudentName').textContent = student.name || '—';
+  ME.activeStudent = { studentId, studentData: sData, hyData: marksData, ftData, classId };
+
+  $('sfStudentName').textContent = sData.name || studentId;
   $('sfClass').textContent       = `Class ${classId}`;
   $('sfTerm').textContent        = term === 'HY' ? 'Half Yearly' : 'Final Term';
-  $('sfRollNo').textContent      = student.rollNo || '—';
+  $('sfRollNo').textContent      = sData.rollNo || '—';
 
-  // Fetch both terms
-  let hyData = {}, ftData = {};
-  try {
-    const [hySnap, ftSnap] = await Promise.all([
-      db.collection('marks').doc(`${classId}_HY`).collection('students').doc(studentId).get(),
-      db.collection('marks').doc(`${classId}_FT`).collection('students').doc(studentId).get()
-    ]);
-    if (hySnap.exists) hyData = hySnap.data();
-    if (ftSnap.exists) ftData = ftSnap.data();
-  } catch (_) {}
+  const locked = marksData.status === 'locked';
+  $('sfLockStatus').style.display = locked ? '' : 'none';
+  $('btnLockRecord').style.display = locked ? 'none' : '';
+  $('btnSaveCT').disabled = locked;
 
-  ME.activeStudent.hyData = hyData;
-  ME.activeStudent.ftData = ftData;
-
-  const isLocked = (term === 'HY' ? hyData : ftData).status === 'locked';
-
-  renderAcademicSummary(hyData, ftData, classNum);
-  renderCoScholastic(hyData, ftData, classNum, isLocked);
-  renderAttendance(hyData, ftData, isLocked);
-  renderRemarks(hyData, ftData, isLocked);
-  renderRank(hyData, ftData, isLocked);
-  renderResult(hyData, ftData, classNum);
-
-  $('btnLockRecord').style.display = isLocked ? 'none' : '';
-  $('sfLockStatus').style.display  = isLocked ? '' : 'none';
-  $('btnSaveCT').disabled           = isLocked;
-}
-
-function getSubjectTotal(academics, key, subj) {
-  const a = academics?.[key];
-  if (!a) return null;
-  return a.total ?? null;
-}
-
-function renderAcademicSummary(hyData, ftData, classNum) {
-  const cfg  = CONFIG[classNum];
-  const wrap = $('sfAcademicTable');
-  if (!cfg) { wrap.innerHTML = '<p class="me-empty">Config not found.</p>'; return; }
-
-  const subjects = cfg.subjects.filter(s => s.countInTotal);
-  let hyGrand = 0, ftGrand = 0;
-
-  const rows = subjects.map(subj => {
-    const hyAcad = hyData.academics || {};
-    const ftAcad = ftData.academics || {};
-
-    let hyTotal = null, ftTotal = null;
-
-    if (subj.isAggregate) {
-      // Sum components
-      let hySum = 0, ftSum = 0, hyOk = true, ftOk = true;
-      subj.components.forEach(cKey => {
-        const hc = hyAcad[cKey]?.total; const fc = ftAcad[cKey]?.total;
-        if (hc == null) hyOk = false; else hySum += hc;
-        if (fc == null) ftOk = false; else ftSum += fc;
-      });
-      hyTotal = hyOk ? hySum : null;
-      ftTotal = ftOk ? ftSum : null;
-    } else {
-      hyTotal = hyAcad[subj.key]?.total ?? null;
-      ftTotal = ftAcad[subj.key]?.total ?? null;
-    }
-
-    const consol = (hyTotal != null && ftTotal != null) ? hyTotal + ftTotal : null;
-    if (hyTotal != null) hyGrand += hyTotal;
-    if (ftTotal != null) ftGrand += ftTotal;
-
-    const hyGrade = hyTotal != null ? computeGrade(hyTotal) : '—';
-    const ftGrade = ftTotal != null ? computeGrade(ftTotal) : '—';
-
-    return `<tr>
-      <td>${escHtml(subj.label)}</td>
-      <td class="${hyTotal != null && hyTotal < 40 ? 'ct-fail-cell' : ''}">${hyTotal ?? '—'}</td>
-      <td class="${ftTotal != null && ftTotal < 40 ? 'ct-fail-cell' : ''}">${ftTotal ?? '—'}</td>
-      <td>${consol ?? '—'}</td>
-      <td><span class="grade-pill">${hyGrade}</span></td>
-      <td><span class="grade-pill">${ftGrade}</span></td>
-    </tr>`;
-  }).join('');
-
-  const grandTotalMax = cfg.grandTotalMax || 0;
-  const fmtPct = v => grandTotalMax > 0 ? (Math.round((v / grandTotalMax) * 1000) / 10).toFixed(1) + '%' : '—';
-  const hyGrade  = computeGrade(hyGrand, grandTotalMax);
-  const ftGrade  = computeGrade(ftGrand, grandTotalMax);
-
-  wrap.innerHTML = `
-    <table class="me-table ct-academic-table">
-      <thead><tr>
-        <th>Subject</th><th>HY Total</th><th>FT Total</th>
-        <th>Consol /200</th><th>HY Grade</th><th>FT Grade</th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-      <tfoot>
-        <tr class="ct-grand-row">
-          <td>Grand Total</td>
-          <td>${hyGrand}</td><td>${ftGrand}</td>
-          <td>${hyGrand + ftGrand}</td><td>—</td><td>—</td>
-        </tr>
-        <tr class="ct-grand-row" style="background:rgba(var(--me-primary-rgb,61,79,42),0.08)">
-          <td>Percentage</td>
-          <td style="font-weight:700;color:var(--me-primary)">${fmtPct(hyGrand)}</td>
-          <td style="font-weight:700;color:var(--me-primary)">${fmtPct(ftGrand)}</td>
-          <td style="font-weight:700;color:var(--me-primary)">${grandTotalMax > 0 ? (Math.round(((hyGrand + ftGrand) / (grandTotalMax * 2)) * 1000) / 10).toFixed(1) + '%' : '—'}</td>
-          <td><span class="grade-pill">${hyGrade}</span></td>
-          <td><span class="grade-pill">${ftGrade}</span></td>
-        </tr>
-      </tfoot>
-    </table>
-  `;
-}
-
-function renderCoScholastic(hyData, ftData, classNum, isLocked) {
-  const cfg  = CONFIG[classNum];
-  const wrap = $('sfCoScholastic');
-  if (!cfg) { wrap.innerHTML = ''; return; }
-
-  const coSch = hyData.coScholastic || ftData.coScholastic || {};
-  const dis   = isLocked ? 'disabled' : '';
-
-  wrap.innerHTML = cfg.coScholastic.map(act => {
-    const t1 = coSch[act.key]?.T1 || '';
-    const t2 = coSch[act.key]?.T2 || '';
-    const opts = g => GRADES.map(gr => `<option value="${gr}" ${gr===g?'selected':''}>${gr}</option>`).join('');
-    return `
-      <div class="ct-cosch-item">
-        <span class="ct-cosch-label">${escHtml(act.label)}</span>
-        <select class="ct-cosch-select" data-key="${act.key}" data-term="T1" ${dis}>
-          <option value="">T1</option>${opts(t1)}
-        </select>
-        <select class="ct-cosch-select" data-key="${act.key}" data-term="T2" ${dis}>
-          <option value="">T2</option>${opts(t2)}
-        </select>
-      </div>`;
-  }).join('');
-}
-
-function renderAttendance(hyData, ftData, isLocked) {
-  const dis = isLocked ? 'disabled' : '';
-  const ha  = hyData.attendance || {};
-  const fa  = ftData.attendance || {};
-  $('sfHyPresent').value   = ha.present ?? '';
-  $('sfHyTotal').value     = ha.total   ?? '';
-  $('sfFtPresent').value   = fa.present ?? '';
-  $('sfFtTotal').value     = fa.total   ?? '';
-  [$('sfHyPresent'),$('sfHyTotal'),$('sfFtPresent'),$('sfFtTotal')].forEach(inp => inp.disabled = isLocked);
-}
-
-function renderRemarks(hyData, ftData, isLocked) {
-  const r   = hyData.remarks || ftData.remarks || {};
-  const dis = isLocked;
-  $('sfHyRemark').value        = r.halfYearly  || '';
-  $('sfFtRemark').value        = r.finalTerm   || '';
-  $('sfPrincipalRemark').value = r.principal   || '';
-  [$('sfHyRemark'),$('sfFtRemark'),$('sfPrincipalRemark')].forEach(ta => ta.disabled = dis);
-}
-
-function renderRank(hyData, ftData, isLocked) {
-  const rank = hyData.rank || ftData.rank || {};
-  $('sfHyRank').value        = rank.hyRank        ?? '';
-  $('sfFtRank').value        = rank.ftRank        ?? '';
-  $('sfTotalStudents').value = rank.totalStudents ?? '';
-
-  // If auto-computed, mark fields as read-only (still allow CT override by unlocking)
-  const autoComputed = !!rank.autoComputed;
-  [$('sfHyRank'), $('sfFtRank'), $('sfTotalStudents')].forEach(inp => {
-    inp.disabled   = isLocked || autoComputed;
-    inp.title      = autoComputed ? 'Auto-calculated from all students\' marks. Open student list to recalculate.' : '';
-    inp.style.background = autoComputed ? 'rgba(0,128,0,0.07)' : '';
+  // Render academic table
+  const cfg      = window._sfsConfig || {};
+  const subjects = cfg.subjects || [];
+  let html = '<table class="me-table"><thead><tr><th>Subject</th><th>HY Marks</th><th>HY Grade</th></tr></thead><tbody>';
+  subjects.forEach(sub => {
+    const entry = marksData[sub.key] || {};
+    const marks = entry.marks != null ? entry.marks : '—';
+    const grade = marks !== '—' ? computeGrade(Number(marks), sub.maxMarks || 100) : '—';
+    html += `<tr><td>${sub.label}</td><td>${marks}</td><td>${grade}</td></tr>`;
   });
+  html += '</tbody></table>';
+  $('sfAcademicTable').innerHTML = html;
 
-  // Show/hide auto badge
-  let badge = $('sfRankAutoBadge');
-  if (!badge) {
-    badge = document.createElement('div');
-    badge.id = 'sfRankAutoBadge';
-    badge.style.cssText = 'font-size:0.72rem;color:#3a7a3a;margin-top:4px;font-style:italic;';
-    const rankSection = $('sfHyRank')?.closest('.ct-section-block') || $('sfHyRank')?.parentElement;
-    if (rankSection) rankSection.appendChild(badge);
-  }
-  badge.textContent = autoComputed ? '✓ Ranks auto-calculated from class marks' : '';
-}
+  // Attendance
+  const hyAtt = marksData.attendance || {};
+  const ftAtt = ftData.attendance   || {};
+  $('sfHyPresent').value = hyAtt.present || '';
+  $('sfHyTotal').value   = hyAtt.total   || '';
+  $('sfFtPresent').value = ftAtt.present || '';
+  $('sfFtTotal').value   = ftAtt.total   || '';
 
-function renderResult(hyData, ftData, classNum) {
-  const cfg = CONFIG[classNum];
-  if (!cfg) return;
-  const passmark  = cfg.passmark ?? 40;
-  const countSubj = cfg.subjects.filter(s => s.countInTotal && !s.isAggregate);
+  // Remarks
+  $('sfHyRemark').value        = marksData.remark          || '';
+  $('sfFtRemark').value        = ftData.remark             || '';
+  $('sfPrincipalRemark').value = marksData.principalRemark || '';
 
-  let hyFail = false, ftFail = false;
-  countSubj.forEach(subj => {
-    const ht = hyData.academics?.[subj.key]?.total;
-    const ft = ftData.academics?.[subj.key]?.total;
-    if (ht != null && ht < passmark) hyFail = true;
-    if (ft != null && ft < passmark) ftFail = true;
+  // Ranks
+  $('sfHyRank').value        = marksData.hyRank       || '';
+  $('sfFtRank').value        = ftData.hyRank          || '';
+  $('sfTotalStudents').value = marksData.totalStudents || '';
+
+  // Result
+  const allPass = subjects.every(sub => {
+    const entry = marksData[sub.key] || {};
+    return entry.marks != null && computeGrade(Number(entry.marks), sub.maxMarks || 100) !== 'F';
   });
+  const badge = $('sfResultBadge');
+  badge.textContent = allPass ? 'PASS' : 'FAIL';
+  badge.className   = `ct-result-badge ${allPass ? 'ct-result-pass' : 'ct-result-fail'}`;
 
-  let result = 'PASS', cls = 'ct-result-pass';
-  if (hyFail && ftFail)       { result = 'FAIL';        cls = 'ct-result-fail'; }
-  else if (hyFail || ftFail)  { result = 'COMPARTMENT'; cls = 'ct-result-comp'; }
+  // Co-scholastic
+  $('sfCoScholastic').innerHTML = '<p style="color:var(--me-muted);font-size:0.82rem;">Co-scholastic data managed via report card generator.</p>';
 
-  $('sfResultBadge').textContent = result;
-  $('sfResultBadge').className   = `ct-result-badge ${cls}`;
-}
-
-// ─── CT SAVE & LOCK ───────────────────────────────────────────────────────────
-$('btnSaveCT').addEventListener('click', async () => {
-  await saveCTData();
-  hideSaveIndicator('Saved ✓');
-});
+  showScreen('screenStudentForm');
+};
 
 async function saveCTData() {
-  const { studentId, classId, term, hyData, ftData } = ME.activeStudent;
+  const { studentId, classId } = ME.activeStudent;
+  const term    = ME.activeClass.term;
+  const termKey = `${classId}_${term}`;
+  const ftTermKey = `${classId}_FT`;
   showSaveIndicator('Saving…');
 
-  const coScholastic = {};
-  document.querySelectorAll('.ct-cosch-select').forEach(sel => {
-    const key  = sel.dataset.key;
-    const term = sel.dataset.term;
-    if (!coScholastic[key]) coScholastic[key] = {};
-    coScholastic[key][term] = sel.value;
-  });
+  try {
+    const mRef  = db.collection('marks').doc(termKey).collection('students').doc(studentId);
+    const ftRef = db.collection('marks').doc(ftTermKey).collection('students').doc(studentId);
 
-  const attendance = {
-    hyPresent: parseInt($('sfHyPresent').value) || 0,
-    hyTotal:   parseInt($('sfHyTotal').value)   || 0,
-    ftPresent: parseInt($('sfFtPresent').value)  || 0,
-    ftTotal:   parseInt($('sfFtTotal').value)    || 0
-  };
+    await mRef.set({
+      attendance:       { present: Number($('sfHyPresent').value)||0, total: Number($('sfHyTotal').value)||0 },
+      remark:           $('sfHyRemark').value,
+      principalRemark:  $('sfPrincipalRemark').value,
+      lastUpdatedBy:    ME.user.uid,
+      lastUpdatedAt:    firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
 
-  const remarks = {
-    halfYearly: $('sfHyRemark').value.trim(),
-    finalTerm:  $('sfFtRemark').value.trim(),
-    principal:  $('sfPrincipalRemark').value.trim()
-  };
-
-  const rank = {
-    hyRank:        parseInt($('sfHyRank').value)        || null,
-    ftRank:        parseInt($('sfFtRank').value)        || null,
-    totalStudents: parseInt($('sfTotalStudents').value) || null
-  };
-
-  // Write same data to both HY and FT docs so it's always accessible
-  const batch = db.batch();
-  for (const t of ['HY','FT']) {
-    const ref = db.collection('marks').doc(`${classId}_${t}`)
-                  .collection('students').doc(studentId);
-    batch.set(ref, {
-      coScholastic, attendance, remarks, rank,
+    await ftRef.set({
+      attendance: { present: Number($('sfFtPresent').value)||0, total: Number($('sfFtTotal').value)||0 },
+      remark:     $('sfFtRemark').value,
       lastUpdatedBy: ME.user.uid,
       lastUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
+
+    hideSaveIndicator('Saved ✓');
+  } catch(err) {
+    console.error(err);
+    hideSaveIndicator('Save failed ✗');
   }
-  await batch.commit();
 }
 
+$('btnSaveCT').addEventListener('click', saveCTData);
+
 $('btnLockRecord').addEventListener('click', () => {
-  $('lockModalMsg').textContent = 'Lock this student\'s record? Subject teachers will no longer be able to edit marks. This cannot be undone.';
-  $('lockModal').dataset.mode   = 'single';
+  $('lockModal').dataset.mode = 'single';
+  $('lockModalMsg').textContent = `Lock the record for ${ME.activeStudent.studentData.name || ME.activeStudent.studentId}? This cannot be undone.`;
+  $('lockModal').classList.remove('hidden');
+});
+
+$('btnLockAll').addEventListener('click', () => {
+  $('lockModal').dataset.mode = 'all';
+  $('lockModalMsg').textContent = `Lock ALL student records for Class ${ME.ctClassId}? This cannot be undone.`;
   $('lockModal').classList.remove('hidden');
 });
 
