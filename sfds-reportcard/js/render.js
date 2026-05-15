@@ -235,8 +235,36 @@ function renderRightPanel(data, config) {
   document.getElementById('rcSumGrade').textContent = consol.grade;
   document.getElementById('rcSumRank').textContent = data.finalTerm.rank || '—';
   document.getElementById('rcSumTotalStudents').textContent = data.finalTerm.totalStudents || '—';
-  document.getElementById('rcSumResult').textContent = consol.result;
-  document.getElementById('rcSumResult').style.color = consol.result === 'PASS' ? '#2E7D32' : '#C62828';
+
+  // ── ADMIN-CONTROLLED FINAL STATUS (all classes III–X) ──────────────────────
+  // Fields: data.finalStatus = "PROMOTED" | "DETAINED"
+  //         data.promotedToClass = e.g. "VII", "VIII", "IX"
+  // Fallback: show PASS / FAIL from internal calculation when not set by admin
+  const resultEl   = document.getElementById('rcSumResult');
+  const finalStatus = data.finalStatus;
+
+  if (finalStatus === 'PROMOTED') {
+    const toClass = (data.promotedToClass || '').toString().trim().toUpperCase();
+    resultEl.textContent  = toClass ? 'PROMOTED TO CLASS ' + toClass : 'PROMOTED';
+    resultEl.style.color      = '#1B6B2F';
+    resultEl.style.fontSize   = toClass ? '0.72rem' : '0.92rem';
+    resultEl.style.letterSpacing = '0.5px';
+    resultEl.dataset.status   = 'promoted';
+  } else if (finalStatus === 'DETAINED') {
+    resultEl.textContent      = 'DETAINED';
+    resultEl.style.color      = '#B71C1C';
+    resultEl.style.fontSize   = '0.92rem';
+    resultEl.style.letterSpacing = '1px';
+    resultEl.dataset.status   = 'detained';
+  } else {
+    // Fallback — PASS / FAIL from consolidated calculation
+    resultEl.textContent      = consol.result || '—';
+    resultEl.style.color      = consol.result === 'PASS' ? '#2E7D32' : '#C62828';
+    resultEl.style.fontSize   = '';
+    resultEl.style.letterSpacing = '';
+    resultEl.dataset.status   = (consol.result || '').toLowerCase();
+  }
+  // ───────────────────────────────────────────────────────────────────────────
 
   const hyAtt = data.halfYearly.attendance;
   const ftAtt = data.finalTerm.attendance;
