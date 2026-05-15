@@ -1,844 +1,532 @@
 /**
  * reportcard.css — SFDS Report Card System
- * Layout: Legal portrait (8.5" × 14" / 216mm × 356mm), single page, print-first
+ * Landscape Legal (14" × 8.5") · 3-column body · one-page guaranteed
  */
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   PRINT PAGE SETUP
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════
+   PRINT SETUP
+   ═══════════════════════════════════════════════════════════ */
 @media print {
-  @page {
-    size: legal portrait;
-    margin: 8mm;
-  }
-
-  html, body {
-    margin: 0;
-    padding: 0;
-    background: white;
-    height: 100%;
-  }
-
-  .no-print {
-    display: none !important;
-  }
-
+  @page { size: legal landscape; margin: 6mm; }
+  html, body { margin: 0; padding: 0; background: white; }
+  .no-print { display: none !important; }
   .report-card {
-    /* No page-break-after: always — that causes a blank second page */
     box-shadow: none !important;
-    border: none !important;
-    width: 200mm !important;
-    height: 340mm !important;
+    border: 3px double var(--rc-gold) !important;
+    width: 343mm !important;
+    min-height: 203mm !important;
     margin: 0 !important;
     overflow: hidden !important;
   }
-
-  .report-card::after {
-    opacity: 0.025;
-  }
-
-  .rc-header,
-  .rc-footer,
-  .rc-marks-table,
-  .rc-result-box,
-  .rc-summary-grid,
-  .rc-coscholastic,
-  .rc-remarks,
-  .rc-attendance {
+  .report-card::after { opacity: 0.03; }
+  .rc-header, .rc-body, .rc-footer {
     page-break-inside: avoid;
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   ROOT VARIABLES
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════
+   VARIABLES — olive/gold scheme inspired by school crest
+   ═══════════════════════════════════════════════════════════ */
 :root {
-  --rc-dark:       #2C2C2C;
-  --rc-gold:       #C9A84C;
-  --rc-cream:      #FAF8F3;
-  --rc-white:      #FFFFFF;
-  --rc-section:    #F5F2EA;
-  --rc-text:       #1A1A1A;
-  --rc-muted:      #666666;
-  --rc-goldtext:   #A0822A;
-  --rc-border:     #E0D9C8;
-  --rc-green:      #2E7D32;
-  --rc-red:        #C62828;
-  --rc-pillbg:     #3A3A2A;
-
-  --rc-font:       'Segoe UI', Arial, sans-serif;
-  --rc-headerfont: Georgia, serif;
+  --rc-dark:      #2A3A1F;   /* dark olive */
+  --rc-darker:    #1F2B17;   /* deeper olive for bottom strip */
+  --rc-accent:    #3D4F2A;   /* olive-green section strips */
+  --rc-gold:      #B8962E;   /* gold */
+  --rc-goldlight: #E8D5A3;   /* light gold text */
+  --rc-cream:     #FAF8F0;   /* cream background */
+  --rc-white:     #FFFFFF;
+  --rc-border:    #D8D2C2;
+  --rc-stripe:    #F4F1E6;   /* row stripe */
+  --rc-text:      #1A1A1A;
+  --rc-muted:     #5A5A5A;
+  --rc-green:     #1B6B2F;
+  --rc-red:       #B71C1C;
+  --rc-font:      'Segoe UI', Arial, sans-serif;
+  --rc-headerfont: Georgia, 'Times New Roman', serif;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════
    BASE
-   ═══════════════════════════════════════════════════════════════════════════ */
-html {
-  font-size: 14px;
-}
-
+   ═══════════════════════════════════════════════════════════ */
+html { font-size: 11.5px; }
 body {
   font-family: var(--rc-font);
-  background: var(--rc-cream);
+  background: #C8C4BC;
   color: var(--rc-text);
-  margin: 0;
-  padding: 0;
-  line-height: 1.4;
+  margin: 0; padding: 0;
+  line-height: 1.35;
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   REPORT CARD WRAPPER — exact Legal usable area (216 - 2×8mm = 200mm wide,
-   356 - 2×8mm = 340mm tall)
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════
+   REPORT CARD WRAPPER (landscape legal)
+   ═══════════════════════════════════════════════════════════ */
 .report-card {
-  width: 200mm;
-  height: 340mm;
-  overflow: hidden;
+  width: 343mm;
+  min-height: 203mm;
   margin: 0 auto;
-  background: var(--rc-cream);
+  background: var(--rc-white);
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
   position: relative;
+  overflow: hidden;
+  border: 3px double var(--rc-gold);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   WATERMARK
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* Watermark */
 .report-card::after {
   content: "ST. FRANCIS DE SALES";
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%) rotate(-35deg);
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%) rotate(-22deg);
   font-family: var(--rc-headerfont);
-  font-size: 3.6rem;
+  font-size: 4.5rem;
   font-weight: 700;
   color: var(--rc-gold);
-  opacity: 0.035;
+  opacity: 0.04;
   white-space: nowrap;
   pointer-events: none;
   z-index: 0;
-  letter-spacing: 3px;
+  letter-spacing: 6px;
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   HEADER
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════
+   HEADER (full width)
+   ═══════════════════════════════════════════════════════════ */
 .rc-header {
   background: var(--rc-dark);
-  border-bottom: 3px solid var(--rc-gold);
-  padding: 4mm 6mm;
+  border-bottom: 2.5px solid var(--rc-gold);
+  padding: 3mm 6mm;
   flex-shrink: 0;
   position: relative;
-  z-index: 1;
+  z-index: 2;
 }
-
-.rc-header-inner {
-  display: flex;
-  align-items: center;
-  gap: 4mm;
-}
-
-.rc-logo {
-  width: 54px;
-  height: 54px;
-  object-fit: contain;
-  flex-shrink: 0;
-  display: block;
-}
-
-.rc-header-text {
-  flex: 1;
-}
-
+.rc-header-inner { display: flex; align-items: center; gap: 4mm; }
+.rc-logo { width: 46px; height: 46px; object-fit: contain; flex-shrink: 0; }
+.rc-header-text { flex: 1; text-align: center; }
 .rc-header-text h1 {
   font-family: var(--rc-headerfont);
-  font-size: 1.15rem;
-  color: var(--rc-gold);
-  margin: 0;
-  letter-spacing: 0.5px;
-  line-height: 1.15;
-}
-
-.rc-address {
-  font-size: 0.75rem;
-  color: var(--rc-cream);
-  margin: 1px 0 0;
-}
-
-.rc-meta {
-  font-size: 0.65rem;
-  color: var(--rc-border);
-  margin: 2px 0 0;
-}
-
-.rc-title {
-  font-size: 0.72rem;
-  color: var(--rc-gold);
-  margin: 3px 0 0;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  font-weight: 600;
-}
-
-.rc-class-badge {
-  background: var(--rc-dark);
-  border: 2px solid var(--rc-gold);
-  color: var(--rc-gold);
-  padding: 3px 8px;
-  text-align: center;
-  font-size: 0.7rem;
+  font-size: 1.4rem; color: var(--rc-goldlight);
+  margin: 0; letter-spacing: 1px; line-height: 1.1;
   font-weight: 700;
-  line-height: 1.5;
-  flex-shrink: 0;
-  min-width: 64px;
+}
+.rc-address  { font-size: 0.7rem; color: #C8C4BC; margin: 1px 0 0; }
+.rc-meta     { font-size: 0.6rem; color: #A0A0A0; margin: 1px 0 0; }
+.rc-title    { font-size: 0.75rem; color: var(--rc-goldlight); margin: 2px 0 0; letter-spacing: 2px; font-weight: 600; }
+.rc-class-badge {
+  border: 1.5px solid var(--rc-gold);
+  color: var(--rc-goldlight);
+  padding: 3px 9px; text-align: center;
+  font-size: 0.66rem; font-weight: 700; line-height: 1.5;
+  flex-shrink: 0; min-width: 64px;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   BODY — 3-COLUMN GRID, fills all remaining height
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════
+   BODY — 3-COLUMN GRID
+   ═══════════════════════════════════════════════════════════ */
 .rc-body {
   display: grid;
-  grid-template-columns: 50mm 1fr 1fr;
-  gap: 2.5mm;
-  padding: 3mm 5mm 2mm;
+  grid-template-columns: 66mm 1fr 1fr;
   flex: 1;
-  min-height: 0;
-  align-items: stretch;
   position: relative;
   z-index: 1;
-}
-
-/* Each panel is a flex column */
-.rc-left,
-.rc-center,
-.rc-right {
-  display: flex;
-  flex-direction: column;
   min-height: 0;
 }
+.rc-left   { border-right: 1.5px solid var(--rc-border); display: flex; flex-direction: column; }
+.rc-center { border-right: 1.5px solid var(--rc-border); display: flex; flex-direction: column; }
+.rc-right  { display: flex; flex-direction: column; }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   SECTION STRIPS
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════
+   SECTION STRIPS (olive bar with arrow)
+   ═══════════════════════════════════════════════════════════ */
 .rc-strip {
-  background: var(--rc-dark);
-  color: var(--rc-gold);
-  padding: 2mm 3mm;
-  font-size: 0.6rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  display: flex;
-  align-items: center;
-  gap: 1.5mm;
-  margin-bottom: 1.5mm;
-  flex-shrink: 0;
+  background: var(--rc-accent);
+  color: var(--rc-goldlight);
+  padding: 1.2mm 3mm;
+  font-size: 0.55rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  border-top: 1px solid var(--rc-dark);
+  position: relative; z-index: 1;
+}
+.rc-strip-thin {
+  padding: 0.9mm 2.5mm;
+  font-size: 0.5rem; letter-spacing: 0.4px;
 }
 
-/* Push the Academic Results strip to the bottom of center panel */
-.rc-strip-push {
-  margin-top: auto;
-}
-
-.rc-strip-marker {
-  font-size: 0.6rem;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   LEFT PANEL
-   ═══════════════════════════════════════════════════════════════════════════ */
-.rc-left {
+/* ═══════════════════════════════════════════════════════════
+   LEFT COLUMN — Student profile, attendance, result, seal, sigs
+   ═══════════════════════════════════════════════════════════ */
+.rc-profile-block {
+  padding: 3mm 2.5mm 3mm;
   background: var(--rc-cream);
+  display: flex; flex-direction: column; align-items: center;
+  border-bottom: 1.5px solid var(--rc-gold);
 }
-
-.rc-photo-box {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 2mm;
-  flex-shrink: 0;
-}
-
+.rc-photo-box { margin-bottom: 2mm; }
 .rc-photo-placeholder {
-  width: 56px;
-  height: 70px;
+  width: 60px; height: 74px;
   border: 1.5px dashed var(--rc-gold);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.5rem;
-  color: var(--rc-muted);
-  text-align: center;
-  background: var(--rc-white);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.5rem; color: var(--rc-muted); text-align: center;
+  background: var(--rc-white); line-height: 1.2;
 }
-
 .rc-profile-name {
-  font-size: 0.82rem;
-  font-weight: 700;
-  text-align: center;
-  margin-bottom: 1mm;
-  color: var(--rc-text);
-  flex-shrink: 0;
+  font-size: 1.25rem; font-weight: 700;
+  text-align: center; color: var(--rc-dark);
+  margin-bottom: 2mm; line-height: 1.15;
+  letter-spacing: 0.3px;
 }
-
-.rc-profile-meta {
-  font-size: 0.56rem;
-  text-align: center;
-  color: var(--rc-muted);
-  margin-bottom: 1.5mm;
-  flex-shrink: 0;
+.rc-profile-chips {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 3px;
 }
-
-.rc-field-list {
-  margin-bottom: 1.5mm;
-  flex-shrink: 0;
-}
-
-.rc-field {
-  display: flex;
-  justify-content: space-between;
+.rc-chip {
   font-size: 0.6rem;
-  padding: 1px 0;
+  background: var(--rc-white);
+  border: 1px solid var(--rc-border);
+  padding: 2px 6px; border-radius: 2px;
+  color: var(--rc-muted);
+}
+.rc-chip strong { color: var(--rc-dark); font-weight: 700; }
+
+/* Info fields list */
+.rc-info-fields-block {
+  padding: 1.5mm 2.5mm;
+  background: var(--rc-white);
   border-bottom: 1px solid var(--rc-border);
 }
-
-.rc-flabel {
-  color: var(--rc-muted);
-  font-weight: 600;
+.rc-info-fields-block .rc-field {
+  display: flex; justify-content: space-between;
+  font-size: 0.58rem; padding: 1.2px 0;
+  border-bottom: 1px dotted var(--rc-border);
+  line-height: 1.3;
 }
-
-.rc-fval {
-  color: var(--rc-text);
-  font-weight: 500;
-}
+.rc-info-fields-block .rc-field:last-child { border-bottom: none; }
+.rc-flabel { color: var(--rc-muted); font-weight: 600; }
+.rc-fval   { color: var(--rc-text);  font-weight: 600; text-align: right; }
 
 /* Attendance */
 .rc-attendance {
-  margin-bottom: 1.5mm;
-  border: 1px solid var(--rc-gold);
-  padding: 2mm;
+  padding: 1.5mm 2.5mm;
   background: var(--rc-white);
-  flex-shrink: 0;
+  border-bottom: 1px solid var(--rc-border);
 }
-
 .rc-att-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.6rem;
-  padding: 1px 0;
-  margin-bottom: 1px;
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 0.56rem; margin-bottom: 0.5mm;
 }
-
-.rc-att-label {
-  color: var(--rc-muted);
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 1.5mm;
-}
-
-.rc-att-label::before {
-  content: "";
-  display: inline-block;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--rc-gold);
-  flex-shrink: 0;
-}
-
+.rc-att-label { color: var(--rc-muted); font-weight: 600; }
 .rc-att-pct {
-  display: inline-block;
-  min-width: 36px;
-  text-align: center;
-  font-size: 0.58rem;
-  font-weight: 700;
-  padding: 1px 3px;
-  border-radius: 2px;
+  display: inline-block; min-width: 30px; text-align: center;
+  font-size: 0.55rem; font-weight: 700; padding: 1px 3px; border-radius: 2px;
 }
-
 .rc-att-pct.att-good     { background: var(--rc-green); color: white; }
-.rc-att-pct.att-moderate { background: var(--rc-gold);  color: var(--rc-dark); }
+.rc-att-pct.att-moderate { background: var(--rc-gold);  color: white; }
 .rc-att-pct.att-poor     { background: var(--rc-red);   color: white; }
-
-.rc-att-bar { margin: 0.5mm 0 1.5mm; }
-.rc-att-bar:last-child { margin-bottom: 0; }
-
-.rc-att-track {
-  height: 5px;
-  background: var(--rc-border);
-  border-radius: 2.5px;
-  overflow: hidden;
-  border: 1px solid rgba(201, 168, 76, 0.15);
-}
-
-.rc-att-fill {
-  height: 100%;
-  width: 0%;
-  min-width: 3%;
-}
-
+.rc-att-bar { margin: 0 0 1.5mm; }
+.rc-att-track { height: 3px; background: var(--rc-border); border-radius: 2px; overflow: hidden; }
+.rc-att-fill  { height: 100%; width: 0%; min-width: 3%; }
 .rc-att-fill.att-good     { background: var(--rc-green); }
 .rc-att-fill.att-moderate { background: var(--rc-gold); }
 .rc-att-fill.att-poor     { background: var(--rc-red); }
 
-/* Overall result box — fixed natural height, no flex:1 */
+/* Result box */
 .rc-result-box {
-  border: 2px solid var(--rc-gold);
-  padding: 2.5mm;
+  margin: 1.5mm 2mm;
+  border: 1.5px solid var(--rc-gold);
+  padding: 1.5mm 2mm;
   background: var(--rc-white);
-  text-align: center;
-  flex-shrink: 0;
-  margin-bottom: 1.5mm;
 }
-
 .rc-result-line {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.65rem;
-  font-weight: 700;
-  color: var(--rc-dark);
-  margin-bottom: 1.5mm;
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 0.5rem; font-weight: 700; color: var(--rc-dark);
+  margin-bottom: 1.5mm; text-transform: uppercase; letter-spacing: 0.3px;
 }
-
 .rc-result-badge {
-  background: var(--rc-green);
-  color: white;
-  padding: 2px 8px;
-  border-radius: 2px;
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.5px;
+  background: var(--rc-green); color: white;
+  padding: 1px 7px; border-radius: 2px;
+  font-size: 0.6rem; font-weight: 700; letter-spacing: 0.5px;
 }
-
 .rc-result-badge.fail { background: var(--rc-red); }
-
 .rc-result-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1.5mm;
+  display: grid; grid-template-columns: repeat(3,1fr); gap: 1mm;
+  text-align: center;
+}
+.rc-rstat  { text-align: center; }
+.rc-rlabel { font-size: 0.46rem; color: var(--rc-muted); font-weight: 600; }
+.rc-rval   { font-size: 0.95rem; font-weight: 700; color: var(--rc-accent); line-height: 1.1; }
+
+/* School seal box (compact) */
+.rc-seal-box {
+  margin: 1.5mm 2mm;
+  flex: 0 0 auto;
+  height: 18mm;
+  border: 1.5px dashed var(--rc-gold);
+  border-radius: 2px;
+  background: repeating-linear-gradient(
+    45deg, transparent, transparent 4px,
+    rgba(184, 150, 46, 0.05) 4px, rgba(184, 150, 46, 0.05) 8px
+  );
 }
 
-.rc-rstat { text-align: center; }
-
-.rc-rlabel {
-  font-size: 0.52rem;
-  color: var(--rc-muted);
-  font-weight: 600;
-}
-
-.rc-rval {
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: var(--rc-goldtext);
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   MARKS TABLES
-   ═══════════════════════════════════════════════════════════════════════════ */
-.rc-marks-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.65rem;
-  margin-bottom: 1.5mm;
-  table-layout: fixed;
+/* Bottom of left column: date of issue only */
+.rc-left-bottom {
+  margin-top: auto;
+  padding: 2mm 2.5mm;
+  border-top: 1px solid var(--rc-border);
+  background: var(--rc-cream);
   flex-shrink: 0;
 }
-
-.rc-marks-table thead tr {
-  background: var(--rc-dark);
-  color: var(--rc-gold);
-}
-
-.rc-marks-table th {
-  padding: 2.5px 2px;
+.rc-date-issue {
+  font-size: 0.55rem; color: var(--rc-muted);
+  text-align: center;
   font-weight: 600;
-  text-align: center;
-  border: 1px solid var(--rc-gold);
-  font-size: 0.58rem;
-  white-space: normal;
-  word-break: break-word;
-  line-height: 1.2;
 }
 
-.rc-marks-table th:first-child {
-  text-align: left;
-  padding-left: 3px;
-  white-space: normal;
+/* ═══════════════════════════════════════════════════════════
+   MARKS TABLES (compact)
+   ═══════════════════════════════════════════════════════════ */
+.rc-marks-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 0.78rem;
+  table-layout: fixed;
+  position: relative; z-index: 1;
 }
-
-.rc-marks-table td {
-  padding: 2.5px 2px;
+.rc-marks-table thead tr { background: var(--rc-stripe); }
+.rc-marks-table th {
+  padding: 2.5px 3px;
+  font-weight: 700; text-align: center;
   border: 1px solid var(--rc-border);
-  text-align: center;
-  vertical-align: middle;
-  overflow: hidden;
+  font-size: 0.68rem; color: var(--rc-dark);
+  white-space: normal; word-break: break-word; line-height: 1.15;
 }
-
+.rc-marks-table th:first-child { text-align: left; padding-left: 2.5mm; }
+.rc-marks-table td {
+  padding: 2.5px 3px;
+  border: 1px solid var(--rc-border);
+  text-align: center; vertical-align: middle;
+  font-size: 0.78rem;
+}
 .rc-marks-table td:first-child {
-  text-align: left;
-  padding-left: 3px;
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: normal;
-  word-break: break-word;
+  text-align: left; padding-left: 2.5mm;
+  font-weight: 600; word-break: break-word;
 }
-
-.rc-marks-table tbody tr:nth-child(even) {
-  background: var(--rc-section);
-}
+.rc-marks-table tbody tr:nth-child(even) { background: var(--rc-stripe); }
 
 /* Component rows */
-.rc-marks-table .rc-row-component td {
-  color: #888888;
-  font-size: 0.58rem;
-  font-weight: 400;
-}
-.rc-marks-table .rc-row-component td:first-child {
-  padding-left: 8px;
-  font-style: italic;
-}
+.rc-marks-table .rc-row-component td { color: #808080; font-size: 0.68rem; }
+.rc-marks-table .rc-row-component td:first-child { padding-left: 5mm; font-style: italic; }
 
 /* Aggregate rows */
 .rc-marks-table .rc-row-aggregate td {
-  background: rgba(201, 168, 76, 0.14);
-  font-weight: 700;
-  color: var(--rc-text);
-  border-bottom: 1.5px solid rgba(201, 168, 76, 0.35);
+  background: #EEE8D8 !important;
+  font-weight: 700; color: var(--rc-dark);
+  border-bottom: 1.2px solid var(--rc-gold);
 }
-.rc-marks-table .rc-row-aggregate td:first-child { font-weight: 700; }
-
-/* Single-total rows */
 .rc-marks-table .rc-row-single td {
-  background: rgba(201, 168, 76, 0.06);
+  background: #F5F0E4 !important;
   font-weight: 600;
-  border-bottom: 1px solid rgba(201, 168, 76, 0.2);
 }
-
-/* Total cell — no underline */
-.rc-marks-table .rc-cell-total {
-  font-weight: 700;
-  color: var(--rc-goldtext);
-}
-
-/* Consolidated cell */
-.rc-marks-table .rc-cell-consol {
-  font-weight: 700;
-  color: var(--rc-dark);
-  background: rgba(201, 168, 76, 0.08);
-}
+.rc-marks-table .rc-cell-total { font-weight: 700; color: var(--rc-accent); }
+.rc-marks-table .rc-cell-consol { font-weight: 700; color: var(--rc-dark); background: #F0EAD8 !important; }
 
 /* Grade pill */
 .rc-marks-table .rc-cell-grade .rc-grade-pill {
   display: inline-block;
-  background: var(--rc-pillbg);
-  color: var(--rc-gold);
-  font-size: 0.56rem;
-  font-weight: 700;
-  padding: 1px 3px;
-  border-radius: 1rem;
-  min-width: 18px;
-  text-align: center;
+  background: var(--rc-accent); color: white;
+  font-size: 0.64rem; font-weight: 700;
+  padding: 1.5px 5px; border-radius: 1rem;
+  min-width: 18px; text-align: center;
 }
+.rc-grade-pill.fail { background: var(--rc-red); }
 
-/* Fail highlighting */
-.rc-cell-fail {
-  background: rgba(198, 40, 40, 0.09) !important;
-  color: #7A1F1F;
-  font-weight: 600;
-}
-
-.rc-grade-pill.fail {
-  background: var(--rc-red);
-  color: white;
-}
+.rc-cell-fail { background: rgba(183,28,28,0.08) !important; color: #8B0000; font-weight: 600; }
 
 /* Term total row */
 .rc-term-total td {
   background: var(--rc-dark) !important;
-  color: var(--rc-gold);
-  font-weight: 700;
-  border-color: var(--rc-gold);
-  font-size: 0.62rem;
+  color: var(--rc-goldlight);
+  font-weight: 700; border-color: var(--rc-accent);
+  font-size: 0.74rem;
+  padding: 3px 4px;
 }
-
-.rc-tt-label {
-  text-align: right;
-  padding-right: 4px;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-.rc-tt-max,
-.rc-tt-val,
-.rc-tt-consol,
-.rc-tt-grade {
-  text-align: center;
-}
+.rc-tt-label { text-align: right; padding-right: 4px; text-transform: uppercase; letter-spacing: 0.3px; }
+.rc-tt-max, .rc-tt-val, .rc-tt-consol, .rc-tt-grade { text-align: center; }
 
 /* Rank row */
 .rc-rank-row .rc-rank-cell {
-  font-size: 0.55rem;
-  font-style: italic;
-  color: var(--rc-muted);
-  text-align: right;
-  padding: 1px 3px;
-  border: 1px solid var(--rc-border);
-  background: var(--rc-section);
+  font-size: 0.5rem; font-style: italic;
+  color: var(--rc-muted); text-align: right;
+  padding: 1px 4px; border: 1px solid var(--rc-border);
+  background: var(--rc-stripe);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   CO-SCHOLASTIC GRID
-   ═══════════════════════════════════════════════════════════════════════════ */
-.rc-coscholastic {
-  margin-bottom: 0;
-  flex-shrink: 0;
-}
-
-.rc-coschol-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 0 0.8mm;
+/* ═══════════════════════════════════════════════════════════
+   TERM SUMMARY GRIDS (HY / FT — 5 cols, compact)
+   ═══════════════════════════════════════════════════════════ */
+.rc-term-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0;
   border-bottom: 1px solid var(--rc-border);
-  margin-bottom: 0.5mm;
 }
-
-.rc-coschol-hdr-terms {
-  display: flex;
-  gap: 4mm;
-}
-
-.rc-coschol-hdr-terms span {
-  min-width: 18px;
-  text-align: center;
-  font-size: 0.5rem;
-  font-weight: 700;
-  color: var(--rc-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-.rc-coschol-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.6rem;
-  padding: 1px 0;
-  border-bottom: 1px dotted var(--rc-border);
-}
-
-.rc-coschol-label { color: var(--rc-text); }
-
-.rc-coschol-terms {
-  display: flex;
-  gap: 4mm;
-}
-
-.rc-coschol-grade {
-  display: inline-block;
-  background: var(--rc-dark);
-  color: var(--rc-gold);
-  font-size: 0.54rem;
-  font-weight: 700;
-  padding: 1px 4px;
-  border-radius: 1rem;
-  min-width: 18px;
-  text-align: center;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   TEACHER'S REMARKS — fills remaining left panel space
-   ═══════════════════════════════════════════════════════════════════════════ */
-.rc-remarks {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.rc-remark-label {
-  font-size: 0.55rem;
-  font-weight: 700;
-  color: var(--rc-muted);
-  margin: 1.5mm 0 0.5mm;
-  flex-shrink: 0;
-}
-
-.rc-remark-text {
-  font-size: 0.65rem;
-  font-style: italic;
-  color: var(--rc-text);
-  padding: 1.5mm;
-  background: var(--rc-white);
-  border-left: 2px solid var(--rc-gold);
-  line-height: 1.4;
-  flex: 1;
-  min-height: 6mm;
+.rc-term-summary-grid .rc-sum-box {
+  border: none;
+  border-right: 1px solid var(--rc-border);
   margin: 0;
+  padding: 1mm 1mm 0.8mm;
+  background: var(--rc-cream);
+}
+.rc-term-summary-grid .rc-sum-box:last-child {
+  border-right: none;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   CONSOLIDATED SUMMARY GRID (in center panel)
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* CONSOLIDATED summary grid — 3×2 */
 .rc-summary-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 1.5mm;
-  margin-bottom: 0;
-  flex-shrink: 0;
+  gap: 0;
+  border-bottom: 1px solid var(--rc-border);
 }
+.rc-summary-grid .rc-sum-box {
+  border: none;
+  border-right: 1px solid var(--rc-border);
+  border-bottom: 1px solid var(--rc-border);
+  margin: 0;
+  padding: 1.2mm 1.5mm 1mm;
+}
+.rc-summary-grid .rc-sum-box:nth-child(3n) { border-right: none; }
+.rc-summary-grid .rc-sum-box:nth-last-child(-n+3) { border-bottom: none; }
 
+/* Summary box internals */
 .rc-sum-box {
   background: var(--rc-white);
-  border: 1.5px solid var(--rc-gold);
-  padding: 2mm;
   text-align: center;
 }
-
 .rc-slabel {
-  font-size: 0.5rem;
-  font-weight: 700;
-  color: var(--rc-muted);
-  margin-bottom: 2px;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
+  font-size: 0.46rem; font-weight: 700;
+  color: var(--rc-muted); margin-bottom: 1px;
+  text-transform: uppercase; letter-spacing: 0.3px;
 }
-
 .rc-sval {
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: var(--rc-goldtext);
-  line-height: 1.15;
+  font-size: 0.92rem; font-weight: 700;
+  color: var(--rc-accent); line-height: 1.05;
 }
-
 .rc-snote {
-  font-size: 0.48rem;
-  color: var(--rc-muted);
-  margin-top: 1px;
+  font-size: 0.44rem; color: var(--rc-muted); margin-top: 1px;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   PRINCIPAL REMARK — fills remaining right panel space
-   ═══════════════════════════════════════════════════════════════════════════ */
-.rc-principal-remark {
-  flex: 1;
-  padding: 2mm;
+/* ═══════════════════════════════════════════════════════════
+   CO-SCHOLASTIC (in LEFT column — bigger fonts for readability)
+   ═══════════════════════════════════════════════════════════ */
+.rc-coscholastic {
+  padding: 1.5mm 2.5mm 2mm;
   background: var(--rc-white);
-  border: 1px solid var(--rc-gold);
-  display: flex;
-  flex-direction: column;
-  min-height: 12mm;
-  margin-top: 1.5mm;
+  border-bottom: 1px solid var(--rc-border);
+}
+.rc-coschol-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0 0 1mm; border-bottom: 1px solid var(--rc-border); margin-bottom: 0.8mm;
+}
+.rc-coschol-hdr-terms { display: flex; gap: 3mm; padding-right: 1mm; }
+.rc-coschol-hdr-terms span {
+  min-width: 18px; text-align: center;
+  font-size: 0.6rem; font-weight: 700;
+  color: var(--rc-muted); text-transform: uppercase; letter-spacing: 0.4px;
+}
+.rc-coschol-item {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 0.72rem; padding: 1.8px 0;
+  border-bottom: 1px dotted var(--rc-border);
+  font-weight: 500;
+}
+.rc-coschol-item:last-child { border-bottom: none; }
+.rc-coschol-label { color: var(--rc-text); }
+.rc-coschol-terms { display: flex; gap: 3mm; padding-right: 1mm; }
+.rc-coschol-grade {
+  display: inline-block;
+  background: var(--rc-accent); color: white;
+  font-size: 0.64rem; font-weight: 700;
+  padding: 1.5px 5px; border-radius: 1rem;
+  min-width: 20px; text-align: center;
 }
 
-.rc-principal-remark-label {
-  font-size: 0.55rem;
-  font-weight: 700;
+/* ═══════════════════════════════════════════════════════════
+   REMARK TEXT (single-paragraph, in center & right cols)
+   ═══════════════════════════════════════════════════════════ */
+.rc-remark-text {
+  font-size: 0.72rem; font-style: italic;
+  color: var(--rc-text); margin: 0;
+  padding: 3mm 3mm;
+  background: var(--rc-cream);
+  border-left: 3px solid var(--rc-gold);
+  line-height: 1.5;
+  min-height: 22mm;
+  flex: 1 1 auto;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   COLUMN SIGNATURES (bottom of center & right columns)
+   ═══════════════════════════════════════════════════════════ */
+.rc-col-signatures {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5mm;
+  padding: 3mm 4mm 2.5mm;
+  border-top: 1.5px solid var(--rc-border);
+  background: var(--rc-white);
+  flex-shrink: 0;
+}
+.rc-col-signatures .rc-sig-block {
+  display: flex; flex-direction: column;
+}
+.rc-col-signatures .rc-sig-line {
+  height: 9mm;
+  border-bottom: 1.2px solid var(--rc-dark);
+  margin-bottom: 1mm;
+}
+.rc-col-signatures .rc-sig-label {
+  font-size: 0.56rem;
   color: var(--rc-muted);
-  margin-bottom: 1.5mm;
+  font-weight: 700;
+  text-align: center;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.5px;
 }
 
-.rc-principal-remark .rc-remark-text {
-  flex: 1;
-  border-left: 2px solid var(--rc-gold);
-  background: transparent;
-  min-height: 0;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   FOOTER — generous signature space for Legal paper
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════
+   FOOTER (full width, compact)
+   ═══════════════════════════════════════════════════════════ */
 .rc-footer {
   border-top: 2px solid var(--rc-gold);
-  padding: 3mm 6mm 3mm;
   flex-shrink: 0;
-  position: relative;
-  z-index: 1;
+  position: relative; z-index: 2;
+  background: var(--rc-white);
 }
-
-/* Signature blocks with proper space */
-.rc-signatures {
-  display: flex;
-  justify-content: space-between;
-  gap: 6mm;
-  margin-bottom: 3mm;
-}
-
-.rc-sig-block {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.rc-sig-line {
-  width: 100%;
-  height: 14mm;        /* generous space to write the signature */
-  border-bottom: 1.5px solid var(--rc-dark);
-  margin-bottom: 1.5mm;
-}
-
-.rc-sig-label {
-  font-size: 0.65rem;
-  color: var(--rc-muted);
-  font-weight: 600;
-  text-align: center;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-}
-
-.rc-date-issue {
-  font-size: 0.65rem;
-  color: var(--rc-muted);
-  text-align: center;
-  margin-bottom: 1.5mm;
-}
-
 .rc-grade-scale {
-  font-size: 0.55rem;
-  color: var(--rc-muted);
-  text-align: center;
-  padding: 1mm 0;
-  border-top: 1px solid var(--rc-border);
+  font-size: 0.55rem; color: var(--rc-muted);
+  text-align: center; padding: 1mm 4mm;
+  background: var(--rc-cream);
   border-bottom: 1px solid var(--rc-border);
-  margin-bottom: 1.5mm;
 }
-
 .rc-bottom-strip {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: var(--rc-dark);
-  color: var(--rc-cream);
-  padding: 1.5mm 3mm;
-  font-size: 0.55rem;
+  display: flex; justify-content: space-between; align-items: center;
+  background: var(--rc-darker); color: #C8C4BC;
+  padding: 1.2mm 5mm; font-size: 0.55rem;
 }
-
 .rc-center-text { text-align: center; flex: 1; }
 .rc-right-text  { text-align: right; }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   SCREEN STYLES (preview mode)
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════
+   SCREEN PREVIEW
+   ═══════════════════════════════════════════════════════════ */
 @media screen {
-  body {
-    padding: 12px;
-    background: #D8D4CA;
-  }
-
+  body { padding: 14px; background: #C8C4BC; }
   .report-card {
-    border: 1px solid var(--rc-gold);
-    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    border: 1px solid var(--rc-border);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.18);
   }
 }
