@@ -193,12 +193,12 @@
           <table class="me-table">
             <thead>
               <tr>
-                <th>#</th><th>Student Name</th><th>Term Total</th>
-                <th>Lock Status</th><th>Action</th>
+                <th>#</th><th>Student Name</th><th>HY Total</th><th>HY%</th>
+                <th>FT Total</th><th>FT%</th><th>Rank</th><th>Status</th><th>Action</th>
               </tr>
             </thead>
             <tbody id="slTableBody">
-              <tr><td colspan="5" class="me-loading"><div class="me-spinner"></div></td></tr>
+              <tr><td colspan="9" class="me-loading"><div class="me-spinner"></div></td></tr>
             </tbody>
           </table>
         </div>
@@ -284,7 +284,7 @@
 
       <!-- Section E: Rank -->
       <div class="me-card">
-        <div class="me-strip">&#9658; E &nbsp; Rank</div>
+        <div class="me-strip">&#9658; E &nbsp; Rank <span style="font-weight:400;font-size:0.72rem;opacity:0.7;margin-left:0.5rem;">(Auto-calculated when you open the Student List)</span></div>
         <div class="ct-rank-grid">
           <div class="ct-rank-item">
             <label>HY Rank</label>
@@ -299,7 +299,7 @@
             <input type="number" id="sfTotalStudents" class="ct-rank-input" min="1" placeholder="—">
           </div>
         </div>
-        <p style="font-size:0.78rem;color:var(--me-muted);padding:0 1rem 0.75rem;">Only students passing all subjects (&#8805;40 each) are ranked. Dense ranking — ties share the same rank.</p>
+        <p style="font-size:0.78rem;color:var(--me-muted);padding:0 1rem 0.75rem;">Ranks are automatically calculated from all students' grand totals each time you open the Student List. Fields are read-only once auto-computed — visit the Student List to recalculate.</p>
       </div>
 
       <!-- Section F: Result -->

@@ -802,9 +802,9 @@ async function openStudentList(term) {
   ME.activeClass = { classId, classNum, term };
 
   showScreen('screenStudentList');
-  $('slTitle').textContent   = `Class ${classId} — ${term === 'HY' ? 'Half Yearly' : 'Final Term'} — Student Records`;
+  $('slTitle').textContent    = `Class ${classId} — ${term === 'HY' ? 'Half Yearly' : 'Final Term'} — Student Records`;
   $('slSubtitle').textContent = 'Academic Year 2026–2027';
-  $('slTableBody').innerHTML  = '<tr><td colspan="6" class="me-loading"><div class="me-spinner"></div><br>Loading…</td></tr>';
+  $('slTableBody').innerHTML  = '<tr><td colspan="8" class="me-loading"><div class="me-spinner"></div><br>Loading…</td></tr>';
 
   try {
     const ctClassStr = String(classNumFromId(classId));
@@ -815,46 +815,129 @@ async function openStudentList(term) {
     const students = studSnap.docs
       .map(d => ({ id: d.id, ...d.data() }))
       .sort((a, b) => (a.rollNo || 0) - (b.rollNo || 0));
-    const termKey  = `${classId}_${term}`;
-    const existing = {};
 
-    const markSnaps = await Promise.all(
-      students.map(s => db.collection('marks').doc(termKey).collection('students').doc(s.id).get())
-    );
-    markSnaps.forEach((snap, i) => { if (snap.exists) existing[students[i].id] = snap.data(); });
+    // Fetch BOTH terms for all students in parallel
+    const [hySnaps, ftSnaps] = await Promise.all([
+      Promise.all(students.map(s => db.collection('marks').doc(`${classId}_HY`).collection('students').doc(s.id).get())),
+      Promise.all(students.map(s => db.collection('marks').doc(`${classId}_FT`).collection('students').doc(s.id).get()))
+    ]);
+    const existingHY = {}, existingFT = {};
+    hySnaps.forEach((snap, i) => { if (snap.exists) existingHY[students[i].id] = snap.data(); });
+    ftSnaps.forEach((snap, i) => { if (snap.exists) existingFT[students[i].id] = snap.data(); });
 
-    renderStudentList(students, existing, term);
+    // Compute grand totals for every student
+    const cfg = CONFIG[classNum];
+    const maxMarks = cfg?.grandTotalMax || 0;
+
+    const hyEntries = students.map(s => ({ id: s.id, total: calcStudentTotal(existingHY[s.id], classNum) }));
+    const ftEntries = students.map(s => ({ id: s.id, total: calcStudentTotal(existingFT[s.id], classNum) }));
+
+    const hyRanks = computeRanks(hyEntries);
+    const ftRanks = computeRanks(ftEntries);
+
+    // Auto-save computed ranks to Firestore
+    await autoSaveRanks(students, existingHY, existingFT, hyRanks, ftRanks, classId);
+
+    renderStudentList(students, existingHY, existingFT, hyRanks, ftRanks, maxMarks, term, classNum);
   } catch (err) {
-    $('slTableBody').innerHTML = `<tr><td colspan="6" class="me-empty">Error: ${err.message}</td></tr>`;
+    $('slTableBody').innerHTML = `<tr><td colspan="8" class="me-empty">Error: ${err.message}</td></tr>`;
   }
 }
 
 function calcStudentTotal(markData, classNum) {
   const cfg = CONFIG[classNum];
   if (!cfg || !markData?.academics) return null;
+  const acad = markData.academics;
   let total = 0;
   cfg.subjects.filter(s => s.countInTotal).forEach(subj => {
-    const a = markData.academics[subj.key];
-    if (a) total += (a.total ?? 0);
+    if (subj.isAggregate) {
+      subj.components.forEach(cKey => {
+        total += (acad[cKey]?.total ?? 0);
+      });
+    } else {
+      total += (acad[subj.key]?.total ?? 0);
+    }
   });
   return total;
 }
 
-function renderStudentList(students, existing, term) {
-  const tbody    = $('slTableBody');
-  const classNum = ME.ctClassNum;
+// Returns true only if every countInTotal (non-aggregate leaf) subject has a total entered
+function isStudentTotalComplete(markData, classNum) {
+  const cfg = CONFIG[classNum];
+  if (!cfg || !markData?.academics) return false;
+  const acad = markData.academics;
+  const leafSubjects = cfg.subjects.filter(s => s.countInTotal && !s.isAggregate);
+  return leafSubjects.every(subj => acad[subj.key]?.total != null);
+}
+
+// Compute ranks for all students given a list of { id, total } entries.
+// Students with null/incomplete totals are unranked.
+function computeRanks(entries) {
+  const ranked = entries.filter(e => e.total !== null && e.total !== undefined);
+  ranked.sort((a, b) => b.total - a.total);
+  const rankMap = {};
+  ranked.forEach((e, i) => { rankMap[e.id] = i + 1; });
+  return rankMap;
+}
+
+async function autoSaveRanks(students, existingHY, existingFT, hyRanks, ftRanks, classId) {
+  const totalStudents = students.length;
+  try {
+    const batch = db.batch();
+    students.forEach(s => {
+      const hyRank = hyRanks[s.id] || null;
+      const ftRank = ftRanks[s.id] || null;
+      const rankPayload = { hyRank, ftRank, totalStudents, autoComputed: true };
+      for (const t of ['HY', 'FT']) {
+        const ref = db.collection('marks').doc(`${classId}_${t}`)
+                      .collection('students').doc(s.id);
+        batch.set(ref, { rank: rankPayload, lastUpdatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+      }
+    });
+    await batch.commit();
+  } catch (err) {
+    console.warn('autoSaveRanks failed:', err);
+  }
+}
+
+function renderStudentList(students, existingHY, existingFT, hyRanks, ftRanks, maxMarks, term, classNum) {
+  const tbody = $('slTableBody');
   tbody.innerHTML = '';
 
+  // Update table header to show both terms
+  const thead = tbody.closest('table')?.querySelector('thead tr');
+  if (thead) {
+    thead.innerHTML = '<th>#</th><th>Student Name</th><th>HY Total</th><th>HY%</th><th>FT Total</th><th>FT%</th><th>Rank</th><th>Status</th><th>Action</th>';
+  }
+
+  const fmt = v => (Math.round(v * 10) / 10).toFixed(1);
+
   students.forEach((student, idx) => {
-    const data     = existing[student.id] || {};
-    const isLocked = data.status === 'locked';
-    const total    = calcStudentTotal(data, classNum);
+    const hyData   = existingHY[student.id] || {};
+    const ftData   = existingFT[student.id] || {};
+    const termData = term === 'HY' ? hyData : ftData;
+    const isLocked = termData.status === 'locked';
+
+    const hyTotal = calcStudentTotal(hyData, classNum);
+    const ftTotal = calcStudentTotal(ftData, classNum);
+    const hyPct   = (maxMarks > 0 && hyTotal !== null) ? fmt((hyTotal / maxMarks) * 100) + '%' : '—';
+    const ftPct   = (maxMarks > 0 && ftTotal !== null) ? fmt((ftTotal / maxMarks) * 100) + '%' : '—';
+    const hyRank  = hyRanks[student.id] || '—';
+    const ftRank  = ftRanks[student.id] || '—';
+    const rankDisplay = term === 'HY' ? hyRank : ftRank;
+
     const tr = el('tr');
     tr.innerHTML = `
       <td>${idx + 1}</td>
       <td style="font-weight:500">${escHtml(student.name)}</td>
-      <td>${total !== null ? total : '—'}</td>
-      <td>${isLocked ? '<span class="status-badge status-locked">&#128274; Locked</span>' : '<span class="status-badge status-draft">&#128275; Open</span>'}</td>
+      <td>${hyTotal !== null ? hyTotal : '—'}</td>
+      <td style="color:var(--me-primary);font-weight:600">${hyPct}</td>
+      <td>${ftTotal !== null ? ftTotal : '—'}</td>
+      <td style="color:var(--me-primary);font-weight:600">${ftPct}</td>
+      <td style="font-weight:700">${rankDisplay}</td>
+      <td>${isLocked
+        ? '<span class="status-badge status-locked">&#128274; Locked</span>'
+        : '<span class="status-badge status-draft">&#128275; Open</span>'}</td>
       <td>
         <button class="btn btn-sm btn-primary ct-fill-btn" data-sid="${student.id}">
           ${isLocked ? '&#128274; View' : '&#9998; Fill &amp; Lock'}
@@ -864,11 +947,13 @@ function renderStudentList(students, existing, term) {
     tbody.appendChild(tr);
   });
 
+  const allStudents = students;
   tbody.querySelectorAll('.ct-fill-btn').forEach(btn => {
-    btn.addEventListener('click', () => openStudentForm(btn.dataset.sid, students, existing));
+    btn.addEventListener('click', () => openStudentForm(btn.dataset.sid, allStudents, term === 'HY' ? existingHY : existingFT));
   });
 
   // Lock All button
+  const existing = term === 'HY' ? existingHY : existingFT;
   const allLocked = students.every(s => existing[s.id]?.status === 'locked');
   $('btnLockAll').disabled = allLocked;
   $('btnLockAll').textContent = allLocked ? '&#128274; All Locked' : '&#128274; Lock All Records';
@@ -982,6 +1067,11 @@ function renderAcademicSummary(hyData, ftData, classNum) {
     </tr>`;
   }).join('');
 
+  const grandTotalMax = cfg.grandTotalMax || 0;
+  const fmtPct = v => grandTotalMax > 0 ? (Math.round((v / grandTotalMax) * 1000) / 10).toFixed(1) + '%' : '—';
+  const hyGrade  = computeGrade(hyGrand, grandTotalMax);
+  const ftGrade  = computeGrade(ftGrand, grandTotalMax);
+
   wrap.innerHTML = `
     <table class="me-table ct-academic-table">
       <thead><tr>
@@ -989,11 +1079,21 @@ function renderAcademicSummary(hyData, ftData, classNum) {
         <th>Consol /200</th><th>HY Grade</th><th>FT Grade</th>
       </tr></thead>
       <tbody>${rows}</tbody>
-      <tfoot><tr class="ct-grand-row">
-        <td>Grand Total</td>
-        <td>${hyGrand}</td><td>${ftGrand}</td>
-        <td>${hyGrand + ftGrand}</td><td>—</td><td>—</td>
-      </tr></tfoot>
+      <tfoot>
+        <tr class="ct-grand-row">
+          <td>Grand Total</td>
+          <td>${hyGrand}</td><td>${ftGrand}</td>
+          <td>${hyGrand + ftGrand}</td><td>—</td><td>—</td>
+        </tr>
+        <tr class="ct-grand-row" style="background:rgba(var(--me-primary-rgb,61,79,42),0.08)">
+          <td>Percentage</td>
+          <td style="font-weight:700;color:var(--me-primary)">${fmtPct(hyGrand)}</td>
+          <td style="font-weight:700;color:var(--me-primary)">${fmtPct(ftGrand)}</td>
+          <td style="font-weight:700;color:var(--me-primary)">${grandTotalMax > 0 ? (Math.round(((hyGrand + ftGrand) / (grandTotalMax * 2)) * 1000) / 10).toFixed(1) + '%' : '—'}</td>
+          <td><span class="grade-pill">${hyGrade}</span></td>
+          <td><span class="grade-pill">${ftGrade}</span></td>
+        </tr>
+      </tfoot>
     </table>
   `;
 }
@@ -1045,10 +1145,28 @@ function renderRemarks(hyData, ftData, isLocked) {
 
 function renderRank(hyData, ftData, isLocked) {
   const rank = hyData.rank || ftData.rank || {};
-  $('sfHyRank').value      = rank.hyRank        ?? '';
-  $('sfFtRank').value      = rank.ftRank        ?? '';
+  $('sfHyRank').value        = rank.hyRank        ?? '';
+  $('sfFtRank').value        = rank.ftRank        ?? '';
   $('sfTotalStudents').value = rank.totalStudents ?? '';
-  [$('sfHyRank'),$('sfFtRank'),$('sfTotalStudents')].forEach(inp => inp.disabled = isLocked);
+
+  // If auto-computed, mark fields as read-only (still allow CT override by unlocking)
+  const autoComputed = !!rank.autoComputed;
+  [$('sfHyRank'), $('sfFtRank'), $('sfTotalStudents')].forEach(inp => {
+    inp.disabled   = isLocked || autoComputed;
+    inp.title      = autoComputed ? 'Auto-calculated from all students\' marks. Open student list to recalculate.' : '';
+    inp.style.background = autoComputed ? 'rgba(0,128,0,0.07)' : '';
+  });
+
+  // Show/hide auto badge
+  let badge = $('sfRankAutoBadge');
+  if (!badge) {
+    badge = document.createElement('div');
+    badge.id = 'sfRankAutoBadge';
+    badge.style.cssText = 'font-size:0.72rem;color:#3a7a3a;margin-top:4px;font-style:italic;';
+    const rankSection = $('sfHyRank')?.closest('.ct-section-block') || $('sfHyRank')?.parentElement;
+    if (rankSection) rankSection.appendChild(badge);
+  }
+  badge.textContent = autoComputed ? '✓ Ranks auto-calculated from class marks' : '';
 }
 
 function renderResult(hyData, ftData, classNum) {
