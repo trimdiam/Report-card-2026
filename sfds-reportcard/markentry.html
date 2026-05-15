@@ -5,10 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SFS Connect — Mark Entry</title>
   <link rel="stylesheet" href="css/markentry.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body class="me-body">
 
-  <!-- ═══════════════════════════════════════════
+  <!-- ═════════════════════════════════════════════
        HEADER (always visible)
   ════════════════════════════════════════════ -->
   <header class="me-header">
@@ -20,14 +21,19 @@
     <div class="me-header-actions">
       <span id="saveIndicator"></span>
       <span id="headerTeacherName" style="font-size:0.82rem;color:var(--me-gold);"></span>
+      <a href="../index.html" id="me-back-link" style="display:inline-flex;align-items:center;gap:6px;color:rgba(255,255,255,0.85);font-size:13px;text-decoration:none;padding:5px 10px;border-radius:6px;background:rgba(255,255,255,0.12);margin-right:12px;transition:background 0.2s" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.12)'">
+        <i class="fas fa-arrow-left" style="font-size:11px"></i> SFS Connect
+      </a>
       <button class="btn btn-sm btn-warn" id="btnLogout" style="display:none;">Sign Out</button>
     </div>
   </header>
 
-  <!-- ═══════════════════════════════════════════
+  <!-- ═════════════════════════════════════════════
        SCREEN 1 — LOGIN
+       Hidden: unauthenticated users are redirected
+       to the main portal by onAuthStateChanged.
   ════════════════════════════════════════════ -->
-  <div class="me-screen active" id="screenLogin">
+  <div class="me-screen" id="screenLogin" style="display:none;">
     <div class="me-login-wrap">
       <div class="me-login-card">
         <h2>Teacher Sign In</h2>
@@ -49,7 +55,7 @@
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════
+  <!-- ═════════════════════════════════════════════
        SCREEN 2 — TEACHER DASHBOARD
   ════════════════════════════════════════════ -->
   <div class="me-screen" id="screenDashboard">
@@ -90,7 +96,7 @@
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════
+  <!-- ═════════════════════════════════════════════
        SCREEN 3 — CLASS GRID (Mark Entry)
   ════════════════════════════════════════════ -->
   <div class="me-screen" id="screenGrid">
@@ -118,7 +124,7 @@
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════
+  <!-- ═════════════════════════════════════════════
        SCREEN 4 — CLASS TEACHER DASHBOARD
   ════════════════════════════════════════════ -->
   <div class="me-screen" id="screenCTDashboard">
@@ -172,7 +178,7 @@
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════
+  <!-- ═════════════════════════════════════════════
        SCREEN 5 — STUDENT REVIEW LIST
   ════════════════════════════════════════════ -->
   <div class="me-screen" id="screenStudentList">
@@ -207,7 +213,7 @@
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════
+  <!-- ═════════════════════════════════════════════
        SCREEN 6 — INDIVIDUAL STUDENT FORM
   ════════════════════════════════════════════ -->
   <div class="me-screen" id="screenStudentForm">
@@ -319,7 +325,7 @@
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════
+  <!-- ═════════════════════════════════════════════
        LOCK CONFIRMATION MODAL
   ════════════════════════════════════════════ -->
   <div class="me-modal-backdrop hidden" id="lockModal">
@@ -333,7 +339,7 @@
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════
+  <!-- ═════════════════════════════════════════════
        SUBMIT CONFIRMATION MODAL
   ════════════════════════════════════════════ -->
   <div class="me-modal-backdrop hidden" id="submitModal">
@@ -347,7 +353,7 @@
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════
+  <!-- ═════════════════════════════════════════════
        SCRIPTS
   ════════════════════════════════════════════ -->
 
