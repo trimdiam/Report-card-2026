@@ -457,24 +457,46 @@ function generateRemark(data, config, term) {
     return `${firstName} needs focused effort across most subjects this term. Starting with ${bestLabel} as a foundation, consistent revision in all areas is strongly recommended.${attSuffix}`.slice(0, 300);
   }
 
-  // ── 4. UT vs TE pattern (standard scheme only) ───────────────────────────
-  // Requires ≥ 2 non-aggregate, non-singleTotal subjects to be meaningful.
+  // ── 4. UT vs TE — locate pattern to specific subject (standard scheme) ────
   let utPattern = '';
+  let utSubjectLabel = '';
   if (isStd) {
     const normal = scorable.filter(s => !s.isAggregate && !s.singleTotal);
     let sumUT = 0, sumTE = 0, n = 0;
+    let maxDrop = 0, maxLift = 0, dropSubj = null, liftSubj = null;
     for (const subj of normal) {
       const sd = termData.subjects[subj.key];
       if (sd && sd.ut != null && sd.exam != null) {
-        sumUT += (sd.ut  / 30) * 100;   // normalise to %
-        sumTE += (sd.exam / 60) * 100;
-        n++;
+        const utPct   = (sd.ut   / 30) * 100;
+        const examPct = (sd.exam / 60) * 100;
+        const diff    = utPct - examPct;
+        sumUT += utPct;  sumTE += examPct;  n++;
+        if (diff  >  maxDrop) { maxDrop = diff;   dropSubj = subj; }
+        if (diff  < -maxLift) { maxLift = -diff;  liftSubj = subj; }
       }
     }
     if (n >= 2) {
-      const diff = (sumUT / n) - (sumTE / n);
-      utPattern = diff > 12 ? 'exam' : diff < -12 ? 'improve' : 'consistent';
+      const avgDiff = (sumUT - sumTE) / n;
+      if (avgDiff > 12) {
+        utPattern      = 'exam';
+        utSubjectLabel = dropSubj ? dropSubj.label : '';
+      } else if (avgDiff < -12) {
+        utPattern      = 'improve';
+        utSubjectLabel = liftSubj ? liftSubj.label : '';
+      } else {
+        utPattern = 'consistent';
+      }
     }
+  }
+
+  // ── 4b. Trend detection (Final Term only) ────────────────────────────────
+  let trendNote = '';
+  if (term === 'ft' && data.halfYearly && data.halfYearly.grandTotal != null) {
+    const deltaPct = config.grandTotalMax > 0
+      ? ((termData.grandTotal - data.halfYearly.grandTotal) / config.grandTotalMax) * 100
+      : 0;
+    if (deltaPct >= 5)       trendNote = 'improve';
+    else if (deltaPct <= -5) trendNote = 'dip';
   }
 
   // ── 5. Personalisation ───────────────────────────────────────────────────
@@ -528,14 +550,24 @@ function generateRemark(data, config, term) {
     s2Parts.push(growthByBand[band]);
   }
   if (utPattern === 'exam') {
-    s2Parts.push('Consistent preparation for examinations is advised.');
+    const hint = utSubjectLabel ? ` particularly in ${utSubjectLabel},` : '';
+    s2Parts.push(`Examination preparation,${hint} needs strengthening to match unit test performance.`);
   } else if (utPattern === 'improve') {
-    s2Parts.push('Improvement in the term examination is commendable.');
+    const hint = utSubjectLabel ? ` in ${utSubjectLabel}` : '';
+    s2Parts.push(`The improvement${hint} in the term examination reflects commendable effort.`);
   }
   if (lowAtt) {
     s2Parts.push('Irregular attendance has affected academic progress.');
   }
   const s2 = s2Parts.join(' ');
+
+  // Trend sentence (FT only; class 3–8; class 9–10 too tight for a 3rd sentence)
+  let sTrend = '';
+  if (trendNote === 'improve') {
+    sTrend = 'Performance has shown a positive trend compared to Term 1, which is encouraging.';
+  } else if (trendNote === 'dip') {
+    sTrend = 'A renewed focus and consistent revision will help recover the strong Term 1 standard.';
+  }
 
   // ── 8. Encouragement sentence (class 3–5 only) ──────────────────────────
   const encPool = [
@@ -549,15 +581,17 @@ function generateRemark(data, config, term) {
   const parts = [s1];
 
   if (cls >= 9) {
-    // Class 9–10: strict maximum 2 sentences
+    // Class 9–10: strict max 2 sentences — no trend sentence
     if (s2) parts.push(s2);
   } else if (cls >= 6) {
     // Class 6–8: 2–3 sentences
     if (s2) parts.push(s2);
+    if (sTrend) parts.push(sTrend);
   } else {
-    // Class 3–5: 3–4 sentences, more descriptive
+    // Class 3–5: 3–4 sentences
     if (s2) parts.push(s2);
-    if (s3) parts.push(s3);
+    if (sTrend) parts.push(sTrend);
+    else if (s3) parts.push(s3);
   }
 
   let remark = parts.join(' ');

@@ -92,7 +92,7 @@ Every generated remark MUST include:
 | IX – X | Max 2 (strict) |
 
 ### Hard Limits
-- Max **300 characters** — trim trailing sentences first, hard-truncate only as last resort
+- **Target ~300 characters** — aim to use the full budget, not stop short. Trim only if exceeded; hard-truncate only as last resort
 - No promotion / detention / pass / fail language
 - Professional, respectful tone at all times
 - Sentence pools: minimum 4 variants per band to avoid identical remarks across a class
