@@ -427,6 +427,8 @@ function generateRemark(data, config, term) {
     if (sd.total < worstVal) { worstVal = sd.total; worst = subj; }
   }
   if (best && worst && best.key === worst.key) worst = null;
+  // Only flag a specific weakness when the gap is meaningful (≥10 pts)
+  if (best && worst && (bestVal - worstVal) < 10) worst = null;
 
   const bestLabel  = best  ? best.label  : 'core subjects';
   const worstLabel = worst ? worst.label : null;
@@ -435,6 +437,25 @@ function generateRemark(data, config, term) {
   const att    = termData.attendance || { present: 0, total: 0 };
   const attPct = att.total > 0 ? (att.present / att.total) * 100 : 100;
   const lowAtt = attPct < 75;
+
+  // ── 3b. Fail-subject count ────────────────────────────────────────────────
+  const passmark = config.passmark || 40;
+  let failCount = 0;
+  for (const subj of scorable) {
+    const sd = termData.subjects[subj.key];
+    if (sd && sd.total != null && sd.total < passmark) failCount++;
+  }
+  const allFail  = scorable.length > 0 && failCount === scorable.length;
+  const mostFail = scorable.length > 0 && failCount >= Math.ceil(scorable.length * 0.75);
+
+  // ── Early exit: weak band + all / most subjects failing ──────────────────
+  if (band === 'weak' && (allFail || mostFail)) {
+    const attSuffix = lowAtt ? ' Regular attendance is also essential.' : '';
+    if (allFail) {
+      return `${firstName} needs to give considerable attention to all subjects this term. A structured daily study routine and timely revision in every subject will be key to meaningful improvement.${attSuffix}`.slice(0, 300);
+    }
+    return `${firstName} needs focused effort across most subjects this term. Starting with ${bestLabel} as a foundation, consistent revision in all areas is strongly recommended.${attSuffix}`.slice(0, 300);
+  }
 
   // ── 4. UT vs TE pattern (standard scheme only) ───────────────────────────
   // Requires ≥ 2 non-aggregate, non-singleTotal subjects to be meaningful.
@@ -494,7 +515,17 @@ function generateRemark(data, config, term) {
   const s2Parts = [];
 
   if (worstLabel) {
-    s2Parts.push(`Focused attention to ${worstLabel} is needed to strengthen overall results.`);
+    s2Parts.push(`${worstLabel} is an area to focus on for better overall results.`);
+  } else {
+    // All subjects within 10 pts — give a general growth suggestion (must always include improvement area)
+    const growthByBand = {
+      excellent : 'Maintaining this consistency across all subjects will sustain the high standard.',
+      vgood     : 'Further consolidation across all subjects will push performance to the next level.',
+      good      : 'Consistent revision across all subjects will help elevate overall results.',
+      average   : 'Strengthening subject preparation uniformly will lead to better outcomes.',
+      weak      : 'Dedicated and regular effort in every subject is essential for progress.'
+    };
+    s2Parts.push(growthByBand[band]);
   }
   if (utPattern === 'exam') {
     s2Parts.push('Consistent preparation for examinations is advised.');
