@@ -189,9 +189,11 @@ function renderCenterPanel(data, config) {
   // Co-scholastic (show Final Term grades as annual assessment)
   document.getElementById('rcHyCoscholastic').innerHTML = buildCoScholastic(data.coScholastic, config);
 
-  // Remarks
-  document.getElementById('rcHyRemark').textContent = data.remarks.halfYearly ? `"${data.remarks.halfYearly}"` : '—';
-  document.getElementById('rcFtRemark').textContent = data.remarks.finalTerm ? `"${data.remarks.finalTerm}"` : '—';
+  // Remarks — use teacher-entered text if present, otherwise generate intelligently
+  const hyRemark = (data.remarks && data.remarks.halfYearly) || generateRemark(data, config, 'hy');
+  const ftRemark = (data.remarks && data.remarks.finalTerm)  || generateRemark(data, config, 'ft');
+  document.getElementById('rcHyRemark').textContent = `"${hyRemark}"`;
+  document.getElementById('rcFtRemark').textContent = `"${ftRemark}"`;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -384,6 +386,166 @@ function buildCoScholastic(coData, config) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   11. REMARK ENGINE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * generateRemark(data, config, term)
+ *
+ * Produces a personalised, school-appropriate remark for the given term.
+ * term: 'hy' (Half Yearly) | 'ft' (Final Term)
+ *
+ * Rules:
+ *  - Observational only — no promotion / detention language
+ *  - Max 300 characters
+ *  - Class 3–5: 3–4 sentences  |  Class 6–8: 2–3  |  Class 9–10: max 2 (strict)
+ */
+function generateRemark(data, config, term) {
+  const cls       = parseInt(data.class, 10);
+  const termData  = term === 'hy' ? data.halfYearly : data.finalTerm;
+  const isStd     = config.markScheme === 'standard';
+
+  // ── 1. Performance band ──────────────────────────────────────────────────
+  const termPct = config.grandTotalMax > 0
+    ? (termData.grandTotal / config.grandTotalMax) * 100
+    : 0;
+
+  const band = termPct >= 90 ? 'excellent'
+             : termPct >= 80 ? 'vgood'
+             : termPct >= 70 ? 'good'
+             : termPct >= 40 ? 'average'
+             :                 'weak';
+
+  // ── 2. Subject analysis — use subjects that count toward the total ────────
+  const scorable = config.subjects.filter(s => s.countInTotal);
+  let best = null, worst = null, bestVal = -1, worstVal = 101;
+
+  for (const subj of scorable) {
+    const sd = termData.subjects[subj.key];
+    if (!sd || sd.total == null) continue;
+    if (sd.total > bestVal)  { bestVal  = sd.total; best  = subj; }
+    if (sd.total < worstVal) { worstVal = sd.total; worst = subj; }
+  }
+  if (best && worst && best.key === worst.key) worst = null;
+
+  const bestLabel  = best  ? best.label  : 'core subjects';
+  const worstLabel = worst ? worst.label : null;
+
+  // ── 3. Attendance ────────────────────────────────────────────────────────
+  const att    = termData.attendance || { present: 0, total: 0 };
+  const attPct = att.total > 0 ? (att.present / att.total) * 100 : 100;
+  const lowAtt = attPct < 75;
+
+  // ── 4. UT vs TE pattern (standard scheme only) ───────────────────────────
+  // Requires ≥ 2 non-aggregate, non-singleTotal subjects to be meaningful.
+  let utPattern = '';
+  if (isStd) {
+    const normal = scorable.filter(s => !s.isAggregate && !s.singleTotal);
+    let sumUT = 0, sumTE = 0, n = 0;
+    for (const subj of normal) {
+      const sd = termData.subjects[subj.key];
+      if (sd && sd.ut != null && sd.exam != null) {
+        sumUT += (sd.ut  / 30) * 100;   // normalise to %
+        sumTE += (sd.exam / 60) * 100;
+        n++;
+      }
+    }
+    if (n >= 2) {
+      const diff = (sumUT / n) - (sumTE / n);
+      utPattern = diff > 12 ? 'exam' : diff < -12 ? 'improve' : 'consistent';
+    }
+  }
+
+  // ── 5. Personalisation ───────────────────────────────────────────────────
+  const firstName  = (data.student && data.student.name)
+    ? data.student.name.trim().split(/\s+/)[0]
+    : 'The student';
+
+  // Deterministic variant: avoids identical openers for same band across terms/classes
+  const v = (firstName.length + cls + (term === 'hy' ? 0 : 1)) % 2;
+
+  // ── 6. Opening sentence pools ────────────────────────────────────────────
+  const s1Pool = {
+    excellent: [
+      `${firstName} has delivered an excellent performance this term, excelling particularly in ${bestLabel}.`,
+      `An outstanding term — ${firstName} shows exceptional ability in ${bestLabel} and maintains a high academic standard.`
+    ],
+    vgood: [
+      `${firstName} has performed very well this term, demonstrating notable strength in ${bestLabel}.`,
+      `A commendable term for ${firstName}, who shows strong aptitude in ${bestLabel} across assessments.`
+    ],
+    good: [
+      `${firstName} has shown a good performance this term with commendable results in ${bestLabel}.`,
+      `A solid effort this term; ${firstName} performs well in ${bestLabel} and has scope for further growth.`
+    ],
+    average: [
+      `${firstName} has shown moderate performance this term, with relative strength observed in ${bestLabel}.`,
+      `This term, ${firstName} demonstrates an average standard; some strength is seen in ${bestLabel}.`
+    ],
+    weak: [
+      `${firstName} requires greater academic effort this term; relative strength is noted in ${bestLabel}.`,
+      `Academic performance this term calls for improvement; ${firstName} shows some engagement with ${bestLabel}.`
+    ]
+  };
+
+  const s1 = s1Pool[band][v];
+
+  // ── 7. Second sentence: weakness + UT/TE + attendance ───────────────────
+  const s2Parts = [];
+
+  if (worstLabel) {
+    s2Parts.push(`Focused attention to ${worstLabel} is needed to strengthen overall results.`);
+  }
+  if (utPattern === 'exam') {
+    s2Parts.push('Consistent preparation for examinations is advised.');
+  } else if (utPattern === 'improve') {
+    s2Parts.push('Improvement in the term examination is commendable.');
+  }
+  if (lowAtt) {
+    s2Parts.push('Irregular attendance has affected academic progress.');
+  }
+  const s2 = s2Parts.join(' ');
+
+  // ── 8. Encouragement sentence (class 3–5 only) ──────────────────────────
+  const encPool = [
+    'With consistent effort and regular revision, much more can be achieved.',
+    'Continued dedication will lead to further progress and success.',
+    'Steady effort and focused study will bring excellent results ahead.'
+  ];
+  const s3 = cls <= 5 ? encPool[cls % encPool.length] : '';
+
+  // ── 9. Assemble by class tier ────────────────────────────────────────────
+  const parts = [s1];
+
+  if (cls >= 9) {
+    // Class 9–10: strict maximum 2 sentences
+    if (s2) parts.push(s2);
+  } else if (cls >= 6) {
+    // Class 6–8: 2–3 sentences
+    if (s2) parts.push(s2);
+  } else {
+    // Class 3–5: 3–4 sentences, more descriptive
+    if (s2) parts.push(s2);
+    if (s3) parts.push(s3);
+  }
+
+  let remark = parts.join(' ');
+
+  // ── 10. Enforce 300-character limit ─────────────────────────────────────
+  if (remark.length > 300) {
+    while (parts.length > 1 && remark.length > 300) {
+      parts.pop();
+      remark = parts.join(' ');
+    }
+    if (remark.length > 300) {
+      remark = remark.slice(0, 297) + '...';
+    }
+  }
+
+  return remark;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    10. FUTURE-READY API SURFACE
    ═══════════════════════════════════════════════════════════════════════════
    The window.SFDS namespace exposes the report-card renderer for external
@@ -402,10 +564,11 @@ function buildCoScholastic(coData, config) {
    }
    ═══════════════════════════════════════════════════════════════════════════ */
 window.SFDS = window.SFDS || {};
-window.SFDS.version = '1.0';
+window.SFDS.version = '1.1';
 window.SFDS.renderReportCard = render;
 window.SFDS.getGradeFromMarks = getGradeFromMarks;
 window.SFDS.formatPct = formatPct;
+window.SFDS.generateRemark = generateRemark;
 
 /* ═══════════════════════════════════════════════════════════════════════════
    12. INIT
