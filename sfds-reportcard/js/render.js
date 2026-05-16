@@ -504,30 +504,40 @@ function generateRemark(data, config, term) {
     ? data.student.name.trim().split(/\s+/)[0]
     : 'The student';
 
-  // Deterministic variant: avoids identical openers for same band across terms/classes
-  const v = (firstName.length + cls + (term === 'hy' ? 0 : 1)) % 2;
+  // Deterministic variant (0–3): avoids identical openers across students in same band
+  const v = (firstName.length + cls + (term === 'hy' ? 0 : 1)) % 4;
 
-  // ── 6. Opening sentence pools ────────────────────────────────────────────
+  // ── 6. Opening sentence pools (4 variants per band) ──────────────────────
   const s1Pool = {
     excellent: [
       `${firstName} has delivered an excellent performance this term, excelling particularly in ${bestLabel}.`,
-      `An outstanding term — ${firstName} shows exceptional ability in ${bestLabel} and maintains a high academic standard.`
+      `An outstanding term — ${firstName} shows exceptional ability in ${bestLabel} and maintains a high academic standard.`,
+      `${firstName} has truly excelled this term; the results in ${bestLabel} are especially praiseworthy.`,
+      `A remarkable term from ${firstName}, who demonstrates mastery in ${bestLabel} and across all subjects.`
     ],
     vgood: [
       `${firstName} has performed very well this term, demonstrating notable strength in ${bestLabel}.`,
-      `A commendable term for ${firstName}, who shows strong aptitude in ${bestLabel} across assessments.`
+      `A commendable term for ${firstName}, who shows strong aptitude in ${bestLabel} across assessments.`,
+      `${firstName} has impressed this term with a very good overall showing, particularly in ${bestLabel}.`,
+      `This term sees ${firstName} performing at a high standard, with ${bestLabel} standing out as a clear strength.`
     ],
     good: [
       `${firstName} has shown a good performance this term with commendable results in ${bestLabel}.`,
-      `A solid effort this term; ${firstName} performs well in ${bestLabel} and has scope for further growth.`
+      `A solid effort this term; ${firstName} performs well in ${bestLabel} and has scope for further growth.`,
+      `${firstName} has made a good effort this term, showing particular promise in ${bestLabel}.`,
+      `A pleasing term for ${firstName}, whose strength in ${bestLabel} reflects genuine capability and effort.`
     ],
     average: [
       `${firstName} has shown moderate performance this term, with relative strength observed in ${bestLabel}.`,
-      `This term, ${firstName} demonstrates an average standard; some strength is seen in ${bestLabel}.`
+      `This term, ${firstName} demonstrates an average standard; some strength is seen in ${bestLabel}.`,
+      `${firstName}'s performance this term is satisfactory, with ${bestLabel} standing out as a bright spot.`,
+      `A fair effort from ${firstName} this term; interest and ability are visible in ${bestLabel}.`
     ],
     weak: [
       `${firstName} requires greater academic effort this term; relative strength is noted in ${bestLabel}.`,
-      `Academic performance this term calls for improvement; ${firstName} shows some engagement with ${bestLabel}.`
+      `Academic performance this term calls for improvement; ${firstName} shows some engagement with ${bestLabel}.`,
+      `This term has been challenging for ${firstName}; some aptitude is observed in ${bestLabel}.`,
+      `${firstName}'s results this term indicate a need for greater commitment; ${bestLabel} offers a foundation for growth.`
     ]
   };
 
@@ -537,15 +547,23 @@ function generateRemark(data, config, term) {
   const s2Parts = [];
 
   if (worstLabel) {
-    s2Parts.push(`${worstLabel} is an area to focus on for better overall results.`);
+    // Band-aware focus-area phrasing — tone matches overall performance level
+    const focusByBand = {
+      excellent : `A little more attention to ${worstLabel} will round off an already impressive performance.`,
+      vgood     : `Channelling similar effort into ${worstLabel} will make this a truly well-rounded term.`,
+      good      : `Targeted revision in ${worstLabel} will make a real difference to the overall result.`,
+      average   : `${worstLabel} is an important area to focus on for meaningful improvement.`,
+      weak      : `Immediate and consistent attention to ${worstLabel} is essential for academic progress.`
+    };
+    s2Parts.push(focusByBand[band]);
   } else {
-    // All subjects within 10 pts — give a general growth suggestion (must always include improvement area)
+    // All subjects within 10 pts — band-appropriate general growth statement
     const growthByBand = {
       excellent : 'Maintaining this consistency across all subjects will sustain the high standard.',
       vgood     : 'Further consolidation across all subjects will push performance to the next level.',
-      good      : 'Consistent revision across all subjects will help elevate overall results.',
-      average   : 'Strengthening subject preparation uniformly will lead to better outcomes.',
-      weak      : 'Dedicated and regular effort in every subject is essential for progress.'
+      good      : 'Consistent revision across every subject will help elevate results further.',
+      average   : 'Strengthening preparation uniformly across all subjects will lead to better outcomes.',
+      weak      : 'Dedicated and regular effort across every subject is essential for meaningful progress.'
     };
     s2Parts.push(growthByBand[band]);
   }
@@ -569,13 +587,14 @@ function generateRemark(data, config, term) {
     sTrend = 'A renewed focus and consistent revision will help recover the strong Term 1 standard.';
   }
 
-  // ── 8. Encouragement sentence (class 3–5 only) ──────────────────────────
+  // ── 8. Encouragement sentence (class 3–5 only, 4 variants) ─────────────
   const encPool = [
     'With consistent effort and regular revision, much more can be achieved.',
-    'Continued dedication will lead to further progress and success.',
-    'Steady effort and focused study will bring excellent results ahead.'
+    'Continued dedication and focused study will lead to excellent results ahead.',
+    'Every bit of effort invested now will bring rewarding progress in the days to come.',
+    'Steady hard work and timely revision will make a real difference going forward.'
   ];
-  const s3 = cls <= 5 ? encPool[cls % encPool.length] : '';
+  const s3 = cls <= 5 ? encPool[(firstName.length + cls) % encPool.length] : '';
 
   // ── 9. Assemble by class tier ────────────────────────────────────────────
   const parts = [s1];
